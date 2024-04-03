@@ -5,7 +5,9 @@ A modified version of iSpec to derive elemental abundances and isotopic ratios o
 
 ___TO RUN A NEW STAR YOU NEED TO:___
     a) add the source's spectrum ("waveobs\tflux\terr\n") and the line regions ("wave_peak\twave_base\twave_top\tnote\n") to '.../mySample/input/' folder,
+    
     b) add literature stellar parameters for your object in 'Spoiler.txt' (first seven symbols was enough for star IDs in my samples, e.g. "J004441"),
+    
     c) open terminal in the root folder and type 'python3 E-iSpec_atomic_script.py 7-symbol-star-ID' (for example, "J004441").
 
 ###########################################################################
