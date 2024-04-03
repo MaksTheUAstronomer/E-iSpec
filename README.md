@@ -12,8 +12,7 @@ ___TO RUN A NEW STAR YOU NEED TO:___
 ###########################################################################
 
 ___ROOT FOLDER STRUCTURE___
-***iSpec has two versions: GUI and Python. They will be addressed as GUISpec and PySpec, respectively.***
-Root folder:
+iSpec has two versions: GUI and Python. They will be addressed below as GUISpec and PySpec, respectively.
 
     a) images/                         = iSpec logos (PNG and GIF),
     b) input/                          = iSpec input files: solar abundances, model atmospheres, model atmosphere grid and minigrid (SPECTRUM, MARCS, GES), Yonsei-Yale isochrones, list of isotopes, line lists, and template spectra,
