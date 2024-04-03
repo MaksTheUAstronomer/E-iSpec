@@ -4,6 +4,7 @@ A modified version of iSpec to derive elemental abundances and isotopic ratios o
 ###########################################################################    
 
 ___TO RUN A NEW STAR YOU NEED TO:___
+
     a) add the source's spectrum ("waveobs\tflux\terr\n") and the line regions ("wave_peak\twave_base\twave_top\tnote\n") to '.../mySample/input/' folder,
     
     b) add literature stellar parameters for your object in 'Spoiler.txt' (first seven symbols was enough for star IDs in my samples, e.g. "J004441"),
@@ -15,6 +16,7 @@ ___TO RUN A NEW STAR YOU NEED TO:___
 ___ROOT FOLDER STRUCTURE___
 ***iSpec has two versions: GUI and Python. They will be addressed as GUISpec and PySpec, respectively.***
 Root folder:
+
     a) images/                         = iSpec logos (PNG and GIF),
     b) input/                          = iSpec input files: solar abundances, model atmospheres, model atmosphere grid and minigrid (SPECTRUM, MARCS, GES), Yonsei-Yale isochrones, list of isotopes, line lists, and template spectra,
     c) isochrones/                     = Yonsei-Yale isochrone plotter,
