@@ -12,6 +12,7 @@ ___TO RUN A NEW STAR YOU NEED TO:___
 ###########################################################################
 
 ___ROOT FOLDER STRUCTURE___
+
 **iSpec has two versions: GUI and Python. They will be addressed below as GUISpec and PySpec, respectively.**
 
     a) images/                         = iSpec logos (PNG and GIF),
