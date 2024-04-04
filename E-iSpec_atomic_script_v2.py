@@ -159,7 +159,7 @@ def ListCreation(wave_base, wave_top):
     atomic_linelist_file = ispec_dir + "/input/linelists/transitions/VALD.300_1100nm/atomic_lines.tsv"
     atomic_linelist = ispec.read_atomic_linelist(atomic_linelist_file, wave_base=wave_base, wave_top=wave_top)
     chemical_elements = ispec.read_chemical_elements(ispec_dir + "/input/abundances/chemical_elements_symbols.dat")
-    solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2009/stdatom.dat")
+    solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2021/stdatom.dat")
     #solar_abundances['Abund'][solar_abundances['code']==chemical_elements['atomic_num'][chemical_elements['symbol']=='C']] += 1.
     #solar_abundances['Abund'][solar_abundances['code']==chemical_elements['atomic_num'][chemical_elements['symbol']=='N']] += 1.
     #solar_abundances['Abund'][solar_abundances['code']==chemical_elements['atomic_num'][chemical_elements['symbol']=='O']] += 1.
@@ -380,7 +380,7 @@ def LineFitPlot(star_spectrum, linemasks, mode):
         cont_a = 0.; cont_b = 1.
         continuum_custom = cont_a*spec['waveobs'] + cont_b
         
-        solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2009/stdatom.dat")
+        solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2021/stdatom.dat")
         chemical_elements = ispec.read_chemical_elements(ispec_dir + "/input/abundances/chemical_elements_symbols.dat")
         ID = chemical_elements['atomic_num'][chemical_elements['symbol']==linemasks['element'][i][:-2]]
         global initial_MH
@@ -488,7 +488,7 @@ def SynthSpec(star_spectrum, regions, abund=0., code='turbospectrum'):
     modeled_layers_pack = ispec.load_modeled_layers_pack(model)
     atmosphere_layers = ispec.interpolate_atmosphere_layers(modeled_layers_pack, {'teff':initial_teff, 'logg':initial_logg, 'MH':initial_MH, 'alpha':initial_alpha})
     isotopes = ispec.read_isotope_data(ispec_dir + "/input/isotopes/SPECTRUM.lst")
-    solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2009/stdatom.dat")
+    solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2021/stdatom.dat")
     atomic_linelist_file = ispec_dir+mySamOut_dir+objName+"_LineList.txt"
     atomic_linelist = ispec.read_atomic_linelist(atomic_linelist_file, wave_base=np.min(star_spectrum['waveobs']), wave_top=np.max(star_spectrum['waveobs']))
     chemical_elements_file = ispec_dir + "/input/abundances/chemical_elements_symbols.dat"
@@ -508,7 +508,7 @@ def SynthSpec(star_spectrum, regions, abund=0., code='turbospectrum'):
             R=initial_R, regions=None, verbose=1, code=code)
     return(synth_spectrum)
     
-def EWparam(star_spectrum, star_continuum_model, linemasks, code='moog', mode='default'):
+def EWparam(star_spectrum, star_continuum_model, linemasks, code='moog', mode='default', nlte=False):
     #--- Model spectra from EW -------------------------------------------------
     global initial_teff, initial_logg, initial_MH, initial_vmic
     initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
@@ -523,7 +523,7 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
         model = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
 
     # Load SPECTRUM abundances
-    solar_abundances_file = ispec_dir + "input/abundances/Asplund.2009/stdatom.dat"
+    solar_abundances_file = ispec_dir + "input/abundances/Asplund.2021/stdatom.dat"
     solar_abundances = ispec.read_solar_abundances(solar_abundances_file)
     
     # Load model atmospheres
@@ -554,13 +554,14 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
     linemasks = linemasks[efilter]
     print(len(linemasks))
 #############################################################################    
-    f = open(ispec_dir+mySamOut_dir+objName+"_Litlast.txt", "w")
+    if nlte:
+        f = open(ispec_dir+mySamOut_dir+objName+"_Litlast_NLTE.txt", "w")
+    else:
+        f = open(ispec_dir+mySamOut_dir+objName+"_Litlast.txt", "w")
     for l in linemasks:
         f.write('%.4f\t%.4f\t%.4f\t%.4f\t%s\n' % (l['wave_nm'], l['wave_peak'], l['wave_base'], l['wave_top'], l['element']))
     f.close()
 #############################################################################
-    #FeIIlineMask = linemasks['wave_nm']==624.7557
-    #linemasks['ew'][FeIIlineMask] -= 32.
     results = ispec.model_spectrum_from_ew(linemasks, modeled_layers_pack, \
                         solar_abundances, initial_teff, initial_logg, initial_MH, initial_alpha, initial_vmic, \
                         free_params=["teff", "logg", "vmic"], \
@@ -577,18 +578,21 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
     #print(len(linemasks), len(x_over_h), len(used_linemasks))
     initial_teff = params['teff']; initial_logg = params['logg']; initial_MH = params['MH']; initial_vmic = params['vmic']
     ##--- Plotting the constraints' plots --------------------------------------
-    CnstrPlot(linemasks, x_over_h)
+    CnstrPlot(linemasks, x_over_h, nlte)
     
     ##--- Save results ---------------------------------------------------------
     logging.info("Saving results...")
-    f = open(ispec_dir+mySamOut_dir+objName+"_res_StePar.txt", "w")
+    if nlte:
+        f = open(ispec_dir+mySamOut_dir+objName+"_res_StePar_NLTE.txt", "w")
+    else:
+        f = open(ispec_dir+mySamOut_dir+objName+"_res_StePar.txt", "w")
     f.write('Teff\teTeff\tlogg\telogg\tMH\teMH\tvmic\tevmic\n')
     f.write('%4.0f\t%4.0f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%1.2f\n' % (params['teff'], errors['teff'], params['logg'], errors['logg'], params['MH'], errors['MH'], params['vmic'], errors['vmic']))
     f.close()
     
     return(params, errors)
 
-def CnstrPlot(linemasks, x_over_h):
+def CnstrPlot(linemasks, x_over_h, nlte=False):
     import matplotlib.pyplot as plt
     Fe_line_regions = [line for line in linemasks if (line[0]=='Fe 1' or line[0]=='Fe 2')]
     Fe_line_regions = np.array(Fe_line_regions)
@@ -622,7 +626,11 @@ def CnstrPlot(linemasks, x_over_h):
     plt.scatter(Fe_line_regions['ewr'][ind1], x_over_h[ind1], s=10, c='olive', zorder=2, label='Fe 1: %3i lines' % len(x_over_h[ind1]))
     plt.scatter(Fe_line_regions['ewr'][ind2], x_over_h[ind2], s=10, c='cyan', zorder=2, label='Fe 2: %3i lines' % len(x_over_h[ind2]))
     plt.legend()
-    plt.savefig(ispec_dir+mySamOut_dir+objName+"_res_SlopeEqu.pdf", bbox_inches='tight', pad_inches=0)
+    if not nlte:
+        nlteAdd=''
+    else:
+        nlteAdd='_NLTE'
+    plt.savefig(ispec_dir+mySamOut_dir+objName+"_res_SlopeEqu"+nlteAdd+".pdf", bbox_inches='tight', pad_inches=0)
     plt.close()
     
     ## Excitation equilibrium
@@ -640,11 +648,15 @@ def CnstrPlot(linemasks, x_over_h):
     plt.scatter(Fe_line_regions['lower_state_eV'][ind1], x_over_h[ind1], s=10, c='olive', zorder=2, label='Fe 1: %3i lines' % len(x_over_h[ind1]))
     plt.scatter(Fe_line_regions['lower_state_eV'][ind2], x_over_h[ind2], s=10, c='cyan', zorder=2, label='Fe 2: %3i lines' % len(x_over_h[ind2]))
     plt.legend()
-    plt.savefig(ispec_dir+mySamOut_dir+objName+"_res_ExcitBal.pdf", bbox_inches='tight', pad_inches=0)
+    if not nlte:
+        nlteAdd=''
+    else:
+        nlteAdd='_NLTE'
+    plt.savefig(ispec_dir+mySamOut_dir+objName+"_res_ExcitBal"+nlteAdd+".pdf", bbox_inches='tight', pad_inches=0)
     plt.close()
     print('[Fe/H] by Fe 1: %.2f; [Fe/H] by Fe 2: %.2f' % (np.nanmean(x_over_h[Fe_line_regions['element']=='Fe 1']), np.nanmean(x_over_h[Fe_line_regions['element']=='Fe 2'])))
     
-def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='default', rewrite_abund_file=True):
+def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='default', rewrite_abund_file=True, nlte=False):
     global initial_teff, initial_logg, initial_MH, initial_vmic
     initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
     max_iterations = 10
@@ -663,7 +675,7 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
     elif objName in {"DYOri","STPup","AFCrt","J053150","GZNor","J050304"}:
         model = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
     # Load SPECTRUM abundances
-    solar_abundances_file = ispec_dir + "input/abundances/Asplund.2009/stdatom.dat"
+    solar_abundances_file = ispec_dir + "input/abundances/Asplund.2021/stdatom.dat"
     solar_abundances = ispec.read_solar_abundances(solar_abundances_file)
     
     # Load model atmospheres
@@ -678,8 +690,14 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
     ##--- EW abund -------------------------------------------------------------
     abundArray = []
     if rewrite_abund_file:
-        f = open(ispec_dir+mySamOut_dir+objName+"_res_Abund.txt", "w")
-        f.write('Element\tN\t[X/H]\te[X/H]\t[X/Fe]\te[X/Fe]\tA(X)array\tA(X)+12.036array\t[X/H]array\n')
+        if nlte:
+            fMean = open(ispec_dir+mySamOut_dir+objName+"_res_Abund_NLTE.txt", "w")
+            fIndv = open(ispec_dir+mySamOut_dir+objName+"_res_IndivAbund_NLTE.txt", "w")
+        else:
+            fMean = open(ispec_dir+mySamOut_dir+objName+"_res_Abund.txt", "w")
+            fIndv = open(ispec_dir+mySamOut_dir+objName+"_res_IndivAbund.txt", "w")
+        fMean.write('element\tN\t[X/H]\te[X/H]\t[X/Fe]\te[X/Fe]\tA(X)array\tA(X)+12.036array\t[X/H]array\n')
+        fIndv.write('element\twave_nm\tloggf\tlower_state_eV\tx_over_h\n')
     for elem in abundTargets: #Calculate abundance for each element
         element_name = elem[:-2] # Fe 1 -> Fe, Sc 2 -> Sc, etc.
         logging.info("CALCULATING [" + element_name + "/H].")
@@ -692,11 +710,14 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
         if rewrite_abund_file:
             ##--- Save results -----------------------------------------------------
             logging.info("Saving results...")
-            f.write('%2s\t%i\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%s\t%s\n' % (elem, len(elem_line_regions), np.nanmean(x_over_h), np.nanstd(x_over_h), np.nanmean(x_over_fe), np.nanstd(x_over_fe), str(normal_abund), str(x_over_h)))
+            fMean.write('%2s\t%i\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%s\t%s\n' % (elem, len(elem_line_regions), np.nanmean(x_over_h), np.nanstd(x_over_h), np.nanmean(x_over_fe), np.nanstd(x_over_fe), str(normal_abund), str(x_over_h)))
+            for i in range(len(x_over_h)):
+                fIndv.write('%s\t%.4f\t%.3f\t%.3f\t%1.2f\n' % (elem, elem_line_regions['wave_nm'][i], elem_line_regions['loggf'][i], elem_line_regions['lower_state_eV'][i], x_over_h[i]))
             print('%s: [%s/H] = %s' % (elem, elem[:-2], x_over_h))
         abundArray.append((elem,np.nanmean(x_over_h),np.nanstd(x_over_h),len(elem_line_regions)))
     if rewrite_abund_file:
-        f.close()
+        fMean.close()
+        fIndv.close()
     
     if mode=='ssfl2l':
         ###--- SS L2L abund ----------------------------------------------------
@@ -713,7 +734,7 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, code='moog', mode='d
         linelist_free_loggf = None
         free_params = []
         f = open(ispec_dir+mySamOut_dir+objName+"_res_L2LSynthAbund.txt","w")
-        f.write('Element\twl (nm)\tTurbocode\t[X/H]\te[X/H]\t[X/Fe]\te[X/Fe]\n')
+        f.write('element\twl (nm)\tTurbocode\t[X/H]\te[X/H]\t[X/Fe]\te[X/Fe]\n')
         for i, line in enumerate(linemasks): #Calculate abundance for each line
             if line['element'][-1] == ' ' or int(line['element'][-1]) > 2:
                 continue
@@ -764,72 +785,33 @@ def SaveSpec(star_spectrum, spectrum_type):
         f.write('%9s\t%9s\t%9s\n' % (np.round(s['waveobs'],5),np.round(s['flux'],7), np.round(s['err'],7)))
     f.close()
 
-
-
-def StepReduc(objName):
-    visits = {
-        # Transition disc stars
-        "CTOri": '00437400',
-        "STPup": '00051085',
-        "RUCen": '00051627',
-        "ACHer": '00780106',
-        "ADAql": '00577852',
-        "EPLyr": '00237281',
-        # Transition disc candidates
-        "DYOri": '00904305',
-        "AFCrt": '00445215',
-        "GZNor": '00056819',
-        "1504Sco": '00051626',
-        "J050304": '00056589',
-        "J053150": '00053409',
-        # Test targets
-        "DFCyg": '00972481'
-    }
-    star_spectrum = ispec.read_spectrum(mySamIn_dir+"%s.txt" % visits[objName])
-    #star_spectrum = ContFitAndNorm(star_spectrum)
-    star_continuum_model = ispec.fit_continuum(star_spectrum, fixed_value=1.0, model="Fixed value")
-    star_spectrum = CosmicFilter(star_spectrum, star_continuum_model)
-    star_spectrum, rv, rv_err = RVCorr(star_spectrum)
-#    star_spectrum, snr = SNRErrCalc(star_spectrum)
-    SaveSpec(star_spectrum, "CleanSpec")
-    #ListCreation(np.min(star_spectrum['waveobs']), np.max(star_spectrum['waveobs']))
-    return(star_spectrum, star_continuum_model, rv, rv_err)
-
-def StepFind(star_spectrum, star_continuum_model, rv): # A manual filtering should be done after this step
-    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="seek")
-    return(linemasks)
-
-def StepFilter(star_spectrum, star_continuum_model, rv):
-    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="tweak")
-    #linemasks = NLTECorrAddition(linemasks)
-    EWparam(star_spectrum, star_continuum_model, linemasks, code="moog")
-    EWabund(star_spectrum, star_continuum_model, linemasks, code="moog")
-    return(linemasks)
-
-def StepStud(star_spectrum, star_continuum_model, rv):
-    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="pick")
-    #linemasks = NLTECorrAddition(linemasks)
-    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, code="moog")
+def WriteErrCalcBest(linemasks, nlte=False):
     ErrCalc_dir = ispec_dir+mySamOut_dir+"ErrCalc/"
     if not os.path.exists(ErrCalc_dir):
          os.makedirs(ErrCalc_dir)
-    fnorm = open(ErrCalc_dir+objName+"_best.txt", "w")
+    if nlte:
+        fnorm = open(ErrCalc_dir+objName+"_best_NLTE.txt", "w")
+    else:
+        fnorm = open(ErrCalc_dir+objName+"_best.txt", "w")
     abunds = EWabund(star_spectrum, star_continuum_model, linemasks, code="moog") #, mode="ssfl2l"
-    fnorm.write('Elem\t[X/H]\tl2l\tNlines\n')
+    fnorm.write('element\t[X/H]\tl2l\tNlines\n')
     for a in abunds:
         fnorm.write("%s\t%.2f\t%.2f\t%i\n" % a) # elem, mean, l2l scatter, Nlines
     fnorm.close()
-    return(linemasks, params, errors)
 
-def ErrStud(star_spectrum, star_continuum_model, rv, params, errors):
+def ErrStud(star_spectrum, star_continuum_model, rv, params, errors, nlte=False):
     global initial_teff, initial_logg, initial_MH, initial_vmic
+    teff_copy = initial_teff; logg_copy = initial_logg; MH_copy = initial_MH; vmic_copy = initial_vmic
     for (key1, param), (key2, error) in zip(params.items(), errors.items()):
         if key1=='alpha':
             continue
         params_test = params; errors_test = errors
         params_test[key1] = param+error
-        fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}+error.txt', "w")
-        fdevs.write('Elem\t[X/H]\tl2l\tNlines\n')
+        if nlte:
+            fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}+error_NLTE.txt', "w")
+        else:
+            fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}+error.txt', "w")
+        fdevs.write('element\t[X/H]\tl2l\tNlines\n')
         initial_teff = params_test['teff']; initial_logg = params_test['logg']; initial_MH = params_test['MH']; initial_vmic = params_test['vmic']
         abunds = EWabund(star_spectrum, star_continuum_model, linemasks, code="moog", rewrite_abund_file=False) #, mode="ssfl2l"
         for a in abunds:
@@ -837,8 +819,11 @@ def ErrStud(star_spectrum, star_continuum_model, rv, params, errors):
         fdevs.close()
         
         params_test[key1] = param-error
-        fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}-error.txt', "w")
-        fdevs.write('Elem\t[X/H]\terr\tNlines\n')
+        if nlte:
+            fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}-error_NLTE.txt', "w")
+        else:
+            fdevs = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{key1}-error.txt', "w")
+        fdevs.write('element\t[X/H]\terr\tNlines\n')
         initial_teff = params_test['teff']; initial_logg = params_test['logg']; initial_MH = params_test['MH']; initial_vmic = params_test['vmic']
         if initial_logg<0.:
             initial_logg=0.
@@ -846,26 +831,34 @@ def ErrStud(star_spectrum, star_continuum_model, rv, params, errors):
         for a in abunds:
             fdevs.write("%s\t%.2f\t%.2f\t%i\n" % a)
         params_test[key1] = param
+        initial_teff = teff_copy; initial_logg = logg_copy; initial_MH = MH_copy; initial_vmic = vmic_copy
         fdevs.close()
 
-def TotalErrCalc():
+def TotalErrCalc(nlte=False):
     # Initialize lists to store data
     data = []
 
     # Read test.txt
-    with open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_best.txt', 'r') as file:
-        for line in file:
-            if line.startswith('Elem'):
-                headers = line.strip().split('\t')
-            else:
-                data.append(line.strip().split('\t'))
+    if nlte:
+        fileBest = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_best_NLTE.txt', 'r')
+    else:
+        fileBest = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_best.txt', 'r')
+    for line in fileBest:
+        if line.startswith('element'):
+            headers = line.strip().split('\t')
+        else:
+            data.append(line.strip().split('\t'))
+    fileBest.close()
 
     # Read other files and append second columns
     elements = ['teff+error', 'teff-error', 'logg+error', 'logg-error', 'vmic+error', 'vmic-error']
     for element in elements:
-        filename = f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{element}.txt'
+        if nlte:
+            filename = f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{element}_NLTE.txt'
+        else:
+            filename = f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_{element}.txt'
         with open(filename, 'r') as file:
-            headers.extend([f'{element[:-5]}'])
+            headers.extend([f'{element}'])
             for idx, line in enumerate(file):
                 if idx == 0:
                     continue  # Skip header line
@@ -888,34 +881,51 @@ def TotalErrCalc():
         data[i].extend([f'{dteff_values[i]:.2f}', f'{dlogg_values[i]:.2f}', f'{dvmic_values[i]:.2f}', f'{dtotal_values[i]:.2f}'])
 
     # Write all data to "ErrMatrix.txt"
-    with open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_ErrMatrix.txt', 'w') as outfile:
+    if nlte:
+        fileMtrx = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_ErrMatrix_NLTE.txt', 'w')
+    else:
+        fileMtrx = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_ErrMatrix.txt', 'w')
         # Write headers
-        outfile.write('\t'.join(headers) + '\n')
+        fileMtrx.write('\t'.join(headers) + '\n')
         # Write data rows
         for row in data:
-            outfile.write('\t'.join(row) + '\n')
+            fileMtrx.write('\t'.join(row) + '\n')
+    fileMtrx.close()
 
     # Write only element, abund, and total error to "FinalErr.txt"
-    with open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_FinalErr.txt', 'w') as outfile:
-        # Write headers
-        outfile.write(f'{headers[0]}\t{headers[1]}\t{headers[-1]}\n')
-        # Write data rows
-        for row in data:
-            outfile.write(f'{row[0]}\t{row[1]}\t{row[-1]}\n')
+    if nlte:
+        fileFnl = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_FinalErr_NLTE.txt', 'w')
+    else:
+        fileFnl = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_FinalErr.txt', 'w')
+    # Write headers
+    fileFnl.write(f'{headers[0]}\t{headers[1]}\t{headers[-1]}\n')
+    # Write data rows
+    for row in data:
+        fileFnl.write(f'{row[0]}\t{row[1]}\t{row[-1]}\n')
+    fileFnl.close()
 
+def custom_sort(element):
+    # Define the custom sorting order for 'element'
+    sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Al 1', 'Si 1', 'Si 2', 'S 1', 'K 1', 'Ca 1', 'Ca 2', 'Sc 2', 'Ti 1', 'Ti 2', 'V 2', 'Cr 1', 'Cr 2', 'Mn 1', 'Mn 2', 'Fe 1', 'Fe 2', 'Co 1', 'Ni 1', 'Cu 1', 'Zn 1', 'Sr 2', 'Y 2', 'Zr 2', 'Ba 2', 'La 2', 'Ce 2', 'Nd 2', 'Sm 2', 'Eu 2']
+    return sorting_order.index(element['element'])
 
-
-def MasterLineList():
-    def read_arrays_from_files(folders):
+def MasterList(mode, nlte=False): #line/abund
+    def read_arrays_from_files(targets):
         arrays = {}
-        for folder in folders:
-            file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{folder}/{folder}_LineFit.txt")
-            arrays[folder] = {'columns': [], 'data': []}
+        for target in targets:
+            if mode=='line':
+                file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{target}/{target}_LineFit.txt")
+            elif mode=='abund':
+                if nlte:
+                    file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{target}/{target}_res_IndivAbund_NLTE.txt")
+                else:
+                    file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{target}/{target}_res_IndivAbund.txt")
+            arrays[target] = {'columns': [], 'data': []}
             with open(file_path, 'r') as file:
                 try:
                     lines = file.readlines()
                     keys = lines[0].strip().split('\t')
-                    arrays[folder]['columns'] = keys
+                    arrays[target]['columns'] = keys
                     for line in lines[1:]:
                         data = line.strip().split('\t')
                         array_data = {}
@@ -924,80 +934,90 @@ def MasterLineList():
                                 array_data[keys[i]] = float(value)
                             except ValueError:
                                 array_data[keys[i]] = value
-                        arrays[folder]['data'].append(array_data)
+                        arrays[target]['data'].append(array_data)
                 except ValueError:
                     print(f"Error reading file '{file_path}': invalid data format.")
-        return arrays
+        return(arrays)
 
-    def custom_sort(element):
-        # Define the custom sorting order for 'element'
-        sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Al 1', 'Si 1', 'Si 2', 'S 1', 'K 1', 'Ca 1', 'Ca 2', 'Sc 2', 'Ti 1', 'Ti 2', 'V 2', 'Cr 1', 'Cr 2', 'Mn 1', 'Mn 2', 'Fe 1', 'Fe 2', 'Co 1', 'Ni 1', 'Cu 1', 'Zn 1', 'Sr 2', 'Y 2', 'Zr 2', 'Ba 2', 'La 2', 'Ce 2', 'Nd 2', 'Sm 2', 'Eu 2']
-        return sorting_order.index(element['element'])
-
-    folders = ["CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri", "AFCrt", "GZNor", "1504Sco", "J050304", "J053150"]
-    arrays = read_arrays_from_files(folders)
+    targets = ["CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri", "AFCrt", "GZNor", "1504Sco", "J050304", "J053150"]
+    arrays = read_arrays_from_files(targets)
 
     # Combine all the shortlist files by 'wave_nm' into a master dictionary
     master_dict = {}
-    for folder, data_dict in arrays.items():
+    for target, data_dict in arrays.items():
         for entry in data_dict['data']:
             wave_nm = entry['wave_nm']
             if wave_nm not in master_dict:
                 master_dict[wave_nm] = {'element': entry['element'], 'loggf': entry['loggf'], 'lower_state_eV': entry['lower_state_eV']}
-                for f in folders:
+                for f in targets:
                     master_dict[wave_nm][f] = "-"
-            if folder not in master_dict[wave_nm]:
-                master_dict[wave_nm][folder] = entry['ew']
-            else:
-                master_dict[wave_nm][folder] = entry['ew']
+            if mode=='line':
+                master_dict[wave_nm][target] = entry['ew']
+            elif mode=='abund':
+                master_dict[wave_nm][target] = entry['x_over_h']
 
     # Write the master dictionary into the "MasterLineList.txt" file
-    with open("mySample2/output/MasterLineList.txt", "w") as master_file:
+    if nlte:
+        if mode=='line':
+            filenameOut = "mySample2/output/MasterLineList_NLTE.txt"
+        elif mode=='abund':
+            filenameOut = "mySample2/output/MasterAbundList_NLTE.txt"
+    else:
+        if mode=='line':
+            filenameOut = "mySample2/output/MasterLineList.txt"
+        elif mode=='abund':
+            filenameOut = "mySample2/output/MasterAbundList.txt"
+    with open(filenameOut, "w") as master_file:
         # Write header
         master_file.write("element\twave_nm\tloggf\tlower_state_eV\t")
-        master_file.write("\t".join(f"{folder}" for folder in folders))
+        master_file.write("\t".join(f"{target}" for target in targets))
         master_file.write("\n")
 
         # Write sorted data
         for wave_nm, data in sorted(master_dict.items(), key=lambda x: (custom_sort(x[1]), x[0])):
             master_file.write(f"{data['element']}\t{wave_nm:.4f}\t{data['loggf']:.3f}\t{data['lower_state_eV']:.3f}\t")
-            master_file.write("\t".join(f"{data.get(folder, '-'):.1f}" if isinstance(data.get(folder), float) else f"{data.get(folder, '-')}" for folder in folders))
+            master_file.write("\t".join(f"{data.get(target, '-'):.2f}" if isinstance(data.get(target), float) else f"{data.get(target, '-')}" for target in targets))
             master_file.write("\n")
 
 
 
-def MasterAbundList():
-    def read_arrays_from_files(folders):
+def MasterAbundPack(nlte=False):
+    def read_arrays_from_files(targets):
         arrays = {}
-        for folder in folders:
-            file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{folder}/ErrCalc/{folder}_FinalErr.txt")
-            arrays[folder] = {'columns': [], 'data': []}
+        for target in targets:
+            if not nlte:
+                nlteAdd = ''
+            else:
+                nlteAdd = '_NLTE'
+            file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/{target}/ErrCalc/{target}_FinalErr{nlteAdd}.txt")
+            arrays[target] = {'columns': [], 'data': []}
             with open(file_path, 'r') as file:
                 try:
                     lines = file.readlines()
                     keys = lines[0].strip().split('\t')
-                    arrays[folder]['columns'] = keys
+                    arrays[target]['columns'] = keys
                     for line in lines[1:]:
                         data = line.strip().split('\t')
                         array_data = {}
                         # Parse the columns correctly
-                        array_data['Elem'] = data[0]
+                        array_data['element'] = data[0]
                         array_data['[X/H]'] = float(data[1])
                         array_data['dtotal'] = float(data[2])
-                        arrays[folder]['data'].append(array_data)
+                        arrays[target]['data'].append(array_data)
                 except (ValueError, IndexError):
                     print(f"Error reading file '{file_path}': invalid data format.")
-        return arrays
+        return(arrays)
 
-    def custom_sort(element):
-        sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Al 1', 'Si 1', 'Si 2', 'S 1', 'K 1', 'Ca 1', 'Ca 2', 'Sc 2', 'Ti 1', 'Ti 2', 'V 2', 'Cr 1', 'Cr 2', 'Mn 1', 'Mn 2', 'Fe 1', 'Fe 2', 'Co 1', 'Ni 1', 'Cu 1', 'Zn 1', 'Sr 2', 'Y 2', 'Zr 2', 'Ba 2', 'La 2', 'Ce 2', 'Nd 2', 'Sm 2', 'Eu 2']
-        return sorting_order.index(element['Elem'])
-
-    folders = ["CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri", "AFCrt", "GZNor", "1504Sco", "J050304", "J053150"]
-    arrays = read_arrays_from_files(folders)
+    targets = ["CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri", "AFCrt", "GZNor", "1504Sco", "J050304", "J053150"]
+    arrays = read_arrays_from_files(targets)
 
     # Write the master dictionary into the "MasterAbundList.txt" file
-    with open("mySample2/output/MasterAbundList.txt", "w") as master_file:
+    if not nlte:
+        nlteAdd = ''
+    else:
+        nlteAdd = '_NLTE'
+    master_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"mySample2/output/MasterAbundPack{nlteAdd}.txt")
+    with open(master_file_path, "w") as master_file:
         # Write header
         sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Al 1', 'Si 1', 'Si 2', 'S 1', 'K 1', 'Ca 1', 'Ca 2', 'Sc 2', 'Ti 1', 'Ti 2', 'V 2', 'Cr 1', 'Cr 2', 'Mn 1', 'Mn 2', 'Fe 1', 'Fe 2', 'Co 1', 'Ni 1', 'Cu 1', 'Zn 1', 'Sr 2', 'Y 2', 'Zr 2', 'Ba 2', 'La 2', 'Ce 2', 'Nd 2', 'Sm 2', 'Eu 2']
         master_file.write("Target")
@@ -1006,12 +1026,12 @@ def MasterAbundList():
         master_file.write("\n")
 
         # Write sorted data
-        for folder, data_dict in arrays.items():
-            master_file.write(f"{folder}")
+        for target, data_dict in arrays.items():
+            master_file.write(f"{target}")
             for el in sorting_order:
                 found = False
                 for entry in data_dict['data']:
-                    if entry['Elem'] == el:
+                    if entry['element'] == el:
                         master_file.write(f"\t{entry['[X/H]']:.2f}\t{entry['dtotal']:.2f}")
                         found = True
                         break
@@ -1021,19 +1041,126 @@ def MasterAbundList():
 
 
 
-def NLTECorrAddition(linemasks): #WIP
-    #linemasks['ew']; linemasks['ewr']
+def NLTECorrAddition(linemasks):
+    logging.info("CORRECTING LINEMASKS FOR NLTE EFFECTS")
+    import pandas as pd
+    df = pd.read_csv(f"mySample2/output/result_fe.txt", sep='\t', header=0, index_col=False)  # Assuming tab-separated values; adjust if necessary
+    df.replace([-1.0, -1000.0], np.nan, inplace=True)
+
+    atomic_linelist_file = ispec_dir+mySamOut_dir+objName+"_LineList.txt"
+    atomic_linelist = ispec.read_atomic_linelist(atomic_linelist_file, wave_base=np.min(star_spectrum['waveobs']), wave_top=np.max(star_spectrum['waveobs']))
+
+    for line in linemasks:
+        elem_array = df[df['element']==line['element']]
+        if elem_array.empty:
+            continue
+        line_array = elem_array[abs(elem_array['wave_nm']-line['wave_nm'])<0.01]
+        print(line_array)
+        abund = float(line_array[objName])
+        print(f"BEFORE: {line['wave_nm']}, {line['ew']}, {line['ewr']}")
+        line['ewr'] += abund
+        line['ew'] = line['wave_A']*1000.*10**(line['ewr'])
+        print(f"AFTER: {line['wave_nm']}, {line['ew']}, {line['ewr']}")
     return(linemasks)
 
+def DoAllLists(nlte=False): #To be called with any ONE target
+    MasterList(mode='line', nlte=nlte)
+    MasterList(mode='abund', nlte=nlte)
+    MasterAbundPack(nlte=nlte)
 
+def CorrectLoggfValues(linemasks): #To correct for self-blends (effective loggf)
+    corrections = {
+        ('C 1', 711.5170): 0.114,
+        ('S 1', 458.9261): -0.087,
+        ('S 1', 469.4113): 0.061,
+        ('S 1', 469.5443): 0.048,
+        ('S 1', 469.6252): 0.039,
+        ('S 1', 527.8700): 0.200,
+        ('S 1', 605.2656): 0.157,
+        ('S 1', 674.8790): 0.103,
+        ('S 1', 869.4710): 0.312
+    }
+    wave_delta = 0.01
+    for line in linemasks:
+        key = (line['element'], line['wave_nm'])
+        for (element, wave_nm), correction in corrections.items():
+            if element == key[0] and abs(wave_nm - key[1]) < wave_delta:
+                line['loggf'] += correction
+    return linemasks
+
+
+
+def StepReduc(objName):
+    visits = {
+        # Transition disc stars
+        "CTOri": '00437400',   # NLTE non-grata lines: 446.1631; 448.2166; 532.8031
+        "STPup": '00051085',
+        "RUCen": '00051627',
+        "ACHer": '00780106',
+        "ADAql": '00577852',   # NLTE non-grata lines: 418.7032; 418.7838; 419.1411; 419.9091
+        "EPLyr": '00237281',
+        # Transition disc candidates
+        "DYOri": '00904305',   # NLTE non-grata lines: 526.9549
+        "AFCrt": '00445215',   # NLTE non-grata lines: 400.5250; 441.5086
+        "GZNor": '00056819',
+        "1504Sco": '00051626', # NLTE non-grata lines: 539.7136; 540.5788
+        "J050304": '00056589', # NLTE non-grata lines: 370.1081; 378.7877; 390.2906; 419.1438; 417.7651
+        "J053150": '00053409', # NLTE non-grata lines: 442.7310
+        # Test targets
+        "DFCyg": '00972481'
+    }
+    star_spectrum = ispec.read_spectrum(mySamIn_dir+"%s.txt" % visits[objName])
+    #star_spectrum = ContFitAndNorm(star_spectrum)
+    star_continuum_model = ispec.fit_continuum(star_spectrum, fixed_value=1.0, model="Fixed value")
+    star_spectrum = CosmicFilter(star_spectrum, star_continuum_model)
+    star_spectrum, rv, rv_err = RVCorr(star_spectrum)
+#    star_spectrum, snr = SNRErrCalc(star_spectrum)
+    SaveSpec(star_spectrum, "CleanSpec")
+    #ListCreation(np.min(star_spectrum['waveobs']), np.max(star_spectrum['waveobs']))
+    return(star_spectrum, star_continuum_model, rv, rv_err)
+
+def StepFind(star_spectrum, star_continuum_model, rv): # A manual filtering should be done after this step
+    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="seek")
+    return(linemasks)
+
+def StepFilter(star_spectrum, star_continuum_model, rv):
+    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="tweak")
+    linemasks = CorrectLoggfValues(linemasks)
+    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, code="moog")
+    abunds = EWabund(star_spectrum, star_continuum_model, linemasks, code="moog")
+    return(linemasks)
+
+def StepStud(star_spectrum, star_continuum_model, rv):
+    linemasks = LineFit(star_spectrum, star_continuum_model, rv, mode="pick")
+    linemasks = CorrectLoggfValues(linemasks)
+    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, code="moog")
+    WriteErrCalcBest(linemasks)
+    abunds = EWabund(star_spectrum, star_continuum_model, linemasks, code="moog")
+    return(linemasks, params, errors)
+
+def StepNLTE(star_spectrum, star_continuum_model, linemasks):
+    linemasks = NLTECorrAddition(linemasks)
+    linemasks = CorrectLoggfValues(linemasks)
+    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, code="moog", nlte=True)
+    WriteErrCalcBest(linemasks, nlte=True)
+    abunds = EWabund(star_spectrum, star_continuum_model, linemasks, code="moog", nlte=True)
+    return(linemasks, params, errors)
+
+def StepErr(star_spectrum, star_continuum_model, rv, params, errors, nlte=False):
+    linemasksErr = ErrStud(star_spectrum, star_continuum_model, rv, params, errors, nlte=nlte)
+    TotalErrCalc(nlte=nlte)
 
 if __name__ == '__main__':
+    nlte=False
     star_spectrum, star_continuum_model, rv, rv_err = StepReduc(objName)
     #linemasks = StepFind(star_spectrum, star_continuum_model, rv)
     #linemasks = StepFilter(star_spectrum, star_continuum_model, rv)
     linemasks, params, errors = StepStud(star_spectrum, star_continuum_model, rv)
-    linemasks = ErrStud(star_spectrum, star_continuum_model, rv, params, errors)
-    TotalErrCalc()
-    #MasterLineList()   #works with any target
-    #MasterAbundList()  #works with any target
+    if not nlte:
+        StepErr(star_spectrum, star_continuum_model, rv, params, errors)
+        DoAllLists() #To be called with any ONE target
+    else:
+        linemasks, params, errors = StepNLTE(star_spectrum, star_continuum_model, linemasks)
+        StepErr(star_spectrum, star_continuum_model, rv, params, errors, nlte)
+        DoAllLists(nlte) #To be called with any ONE target
     pass
