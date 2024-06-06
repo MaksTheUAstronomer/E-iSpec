@@ -37,7 +37,7 @@ if(ar > 0):
             print(inputfile, outputfileflux)
 else:
    #   no parameters received from the command line, give help.
-   print("USAGE  : python NormaliseManually.py -i inputfile.txt")
+   print("USAGE  : python E-iSpec_manual_normalisation.py -i inputfile.txt")
    print(" ")
 
 
