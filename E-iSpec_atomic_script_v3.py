@@ -248,7 +248,7 @@ def LineFit(star_spectrum, star_continuum_model, model_atmospheres, rv, FeCNO=1,
     return(linemasks)
 
 def LineFitFilt(line_regions, linemasks, ID): # A function to plot the output of each step
-    LineFitOut_dir = ispec_dir+mySamOut_dir+'LineFitOutput'
+    LineFitOut_dir = ispec_dir+mySamOut_dir+'LineFitOutput/'
     if not os.path.exists(LineFitOut_dir):
         os.makedirs(LineFitOut_dir)
     #############################################################################    
