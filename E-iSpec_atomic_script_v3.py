@@ -44,7 +44,7 @@ if np.any(index):
     initial_teff = float(Ateff[index]); initial_logg = float(Alogg[index]); initial_MH = float(Amet[index]); initial_vmic = float(Avmic[index])
 else:
     initial_teff = 6000.0; initial_logg = 1.0; initial_MH = -2.; initial_vmic = 3.5
-initial_R = 57000.
+initial_R = 57000.; initial_alpha = 0.4
 star_spectrum = []; star_continuum_model = []; star_continuum_regions= []
 estimated_snr = []; segments = []; star_linemasks = []
 
@@ -144,11 +144,11 @@ def SNRErrCalc(star_spectrum):
     
 def ListCreation(wave_base, wave_top, model_atmospheres):
     #--- Calculate theoretical equivalent widths and depths for a linelist -----
-    global initial_teff, initial_logg, initial_MH, initial_vmic
+    global initial_teff, initial_logg, initial_MH, initial_vmic, initial_alpha
     logging.info("CREATING A LINE LIST FOR THE FOLLOWING AP: %4.0f, %1.1f, %1.2f, %1.1f" % (initial_teff, initial_logg, initial_MH, initial_vmic))
-    alpha = ispec.determine_abundance_enchancements(initial_MH)
+    #initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
     modeled_layers_pack = ispec.load_modeled_layers_pack(model_atmospheres)
-    atmosphere_layers = ispec.interpolate_atmosphere_layers(modeled_layers_pack, {'teff':initial_teff, 'logg':initial_logg, 'MH':initial_MH, 'alpha':alpha})
+    atmosphere_layers = ispec.interpolate_atmosphere_layers(modeled_layers_pack, {'teff':initial_teff, 'logg':initial_logg, 'MH':initial_MH, 'alpha':initial_alpha})
     isotopes = ispec.read_isotope_data(ispec_dir + "/input/isotopes/SPECTRUM.lst")
     atomic_linelist_file = ispec_dir + "/input/linelists/transitions/VALD.300_1100nm/atomic_lines.tsv"
     atomic_linelist = ispec.read_atomic_linelist(atomic_linelist_file, wave_base=wave_base, wave_top=wave_top)
@@ -162,7 +162,7 @@ def ListCreation(wave_base, wave_top, model_atmospheres):
     #CNO_mask = np.logical_or(CNO_mask, atomic_linelist['element']=='O 1')
     #atomic_linelist = atomic_linelist[CNO_mask]
     new_atomic_linelist = ispec.calculate_theoretical_ew_and_depth(atmosphere_layers, \
-            initial_teff, initial_logg, initial_MH+1., alpha, \
+            initial_teff, initial_logg, initial_MH+1., initial_alpha, \
             atomic_linelist, isotopes, solar_abundances, microturbulence_vel=initial_vmic, \
             verbose=1, gui_queue=None, timeout=900)
     #new_atomic_linelist = new_atomic_linelist[new_atomic_linelist['theoretical_ew']>5.]
@@ -475,8 +475,8 @@ def LineComparPlot(linemasks):
     plt.close()
     
 def SynthSpec(star_spectrum, regions, model_atmospheres, abund=0., code='turbospectrum'):
-    global initial_teff, initial_logg, initial_MH, initial_vmic, initial_R
-    initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
+    global initial_teff, initial_logg, initial_MH, initial_vmic, initial_R, initial_alpha
+    #initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
     macroturbulence = ispec.estimate_vmac(initial_teff, initial_logg, initial_MH)
     max_iterations = 10
     modeled_layers_pack = ispec.load_modeled_layers_pack(model_atmospheres)
@@ -504,8 +504,8 @@ def SynthSpec(star_spectrum, regions, model_atmospheres, abund=0., code='turbosp
     
 def EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code='moog', mode='default', nlte=False):
     #--- Model spectra from EW -------------------------------------------------
-    global initial_teff, initial_logg, initial_MH, initial_vmic
-    initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
+    global initial_teff, initial_logg, initial_MH, initial_vmic, initial_alpha
+    #initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
     max_iterations = 15
 
     #--- Model spectra ---------------------------------------------------------
@@ -553,19 +553,16 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
     f.close()
 #############################################################################
 ####### TEST ################################################################
+    #logging.info("Testing the method with the codename 'In absentia of Fe lines'")
     #atomic_linelist_file = ispec_dir+mySamOut_dir+objName+"_LineList.txt"
     #atomic_linelist = ispec.read_atomic_linelist(atomic_linelist_file, wave_base=np.min(star_spectrum['waveobs']), wave_top=np.max(star_spectrum['waveobs']))
     #isotopes = ispec.read_isotope_data(ispec_dir + "/input/isotopes/SPECTRUM.lst")
     #solar_abundances = ispec.read_solar_abundances(ispec_dir + "/input/abundances/Asplund.2021/stdatom.dat")
-    #segments = ispec.read_segment_regions(ispec_dir + "mySample3/input/BD+152862/BD+152862_AllSegments.txt")
-    #initial_vmac = 2.
-    #initial_vsini = 18.3
-    #initial_limb_darkening_coeff = 0.6
-    #initial_R = 57000.
-    #initial_vrad = 0.
+    #segments = ispec.read_segment_regions(ispec_dir + "mySample3/input/BD+152862/BD+152862_H+HeSegments.txt")
+    #initial_vmac = 2.; initial_vsini = 18.3; initial_vrad = 0.
+    #initial_limb_darkening_coeff = 0.; initial_R = 57000.
     #free_params = ["teff", "logg", "MH", "vmic", "vmac"]
-    #free_abundances=None
-    #linelist_free_loggf=None
+    #free_abundances=None; linelist_free_loggf=None
     #obs_spec, modeled_synth_spectrum, params, errors, abundances_found, loggf_found, status, stats_linemasks = \
     #        ispec.model_spectrum(star_spectrum, star_continuum_model, modeled_layers_pack, \
     #        atomic_linelist, isotopes, solar_abundances, free_abundances, linelist_free_loggf, \
@@ -577,8 +574,8 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
     #        vmic_from_empirical_relation = False, \
     #        vmac_from_empirical_relation = False, \
     #        max_iterations=max_iterations, \
-    #        tmp_dir = None, \
-    #        code=code)
+    #       tmp_dir = None, \
+    #        code='turbospectrum')
     #ispec.save_results("example_results_synth.dump", (params, errors, abundances_found, loggf_found, status, stats_linemasks))
     #print(params, errors)
 #############################################################################
@@ -683,8 +680,8 @@ def CnstrPlot(linemasks, x_over_h, nlte=False):
     print('[Fe/H] by Fe 1: %.2f; [Fe/H] by Fe 2: %.2f' % (np.nanmean(x_over_h[Fe_line_regions['element']=='Fe 1']), np.nanmean(x_over_h[Fe_line_regions['element']=='Fe 2'])))
     
 def EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code='moog', mode='default', rewrite_abund_file=True, nlte=False):
-    global initial_teff, initial_logg, initial_MH, initial_vmic
-    initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
+    global initial_teff, initial_logg, initial_MH, initial_vmic, initial_alpha
+    #initial_alpha = ispec.determine_abundance_enchancements(initial_MH)
     max_iterations = 10
     #--- Metallicity grid limitation
     if initial_MH < -2.5:
@@ -719,7 +716,7 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
             fMean = open(ispec_dir+mySamOut_dir+objName+"_res_Abund.txt", "w")
             fIndv = open(ispec_dir+mySamOut_dir+objName+"_res_IndivAbund.txt", "w")
         fMean.write('element\tN\t[X/H]\te[X/H]\t[X/Fe]\te[X/Fe]\tA(X)array\tA(X)+12.036array\t[X/H]array\n')
-        fIndv.write('element\twave_nm\tloggf\tlower_state_eV\tx_over_h\n')
+        fIndv.write('element\twave_nm\tloggf\tlower_state_eV\tew_mA\tlog(eps)\tlog(eps)sol\tx_over_h\tx_over_fe\n')
     for elem in abundTargets: #Calculate abundance for each element
         element_name = elem[:-2] # Fe 1 -> Fe, Sc 2 -> Sc, etc.
         logging.info("CALCULATING [" + element_name + "/H].")
@@ -734,7 +731,9 @@ def EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
             logging.info("Saving results...")
             fMean.write('%2s\t%i\t%1.2f\t%1.2f\t%1.2f\t%1.2f\t%s\t%s\n' % (elem, len(elem_line_regions), np.nanmean(x_over_h), np.nanstd(x_over_h), np.nanmean(x_over_fe), np.nanstd(x_over_fe), str(normal_abund), str(x_over_h)))
             for i in range(len(x_over_h)):
-                fIndv.write('%s\t%.4f\t%.3f\t%.3f\t%1.2f\n' % (elem, elem_line_regions['wave_nm'][i], elem_line_regions['loggf'][i], elem_line_regions['lower_state_eV'][i], x_over_h[i]))
+                elem_row_sol = solar_abundances['code']==int(float(elem_line_regions['spectrum_moog_species'][i]))
+                log_eps_sol = solar_abundances['Abund'][elem_row_sol] + 12.036
+                fIndv.write('%s\t%.4f\t%.3f\t%.3f\t%.1f\t%.2f\t%.2f\t%.2f\t%.2f\n' % (elem, elem_line_regions['wave_nm'][i], elem_line_regions['loggf'][i], elem_line_regions['lower_state_eV'][i], elem_line_regions['ew'][i], log_eps_sol+x_over_h[i], log_eps_sol, x_over_h[i], x_over_fe[i]))
             print('%s: [%s/H] = %s' % (elem, elem[:-2], x_over_h))
         abundArray.append((elem,np.nanmean(x_over_h),np.nanstd(x_over_h),len(elem_line_regions)))
     if rewrite_abund_file:
@@ -806,6 +805,27 @@ def SaveSpec(star_spectrum, spectrum_type):
     for s in star_spectrum:
         f.write('%9s\t%9s\t%9s\n' % (np.round(s['waveobs'],5),np.round(s['flux'],7), np.round(s['err'],7)))
     f.close()
+
+
+
+def interpolate_atmosphere(code="turbospectrum"):
+    global initial_teff, initial_logg, initial_MH, initial_R, initial_vmic, initial_alpha
+    model = ispec_dir + "/input/atmospheres/ATLAS9.KuruczODFNEW/"
+    # Load model atmospheres
+    modeled_layers_pack = ispec.load_modeled_layers_pack(model)
+
+    # Validate parameters
+    if not ispec.valid_atmosphere_target(modeled_layers_pack, {'teff':initial_teff, 'logg':initial_logg, 'MH':initial_MH, 'alpha':initial_alpha}):
+        msg = "The specified effective temperature, gravity (log g) and metallicity [M/H] \
+                fall out of theatmospheric models."
+        print(msg)
+
+    # Prepare atmosphere model
+    atmosphere_layers = ispec.interpolate_atmosphere_layers(modeled_layers_pack, {'teff':initial_teff, 'logg':initial_logg, 'MH':initial_MH, 'alpha':initial_alpha}, code=code)
+    atmosphere_layers_file = ispec_dir + mySamOut_dir + objName + "_InterpModel.txt"
+    atmosphere_layers_file = ispec.write_atmosphere(atmosphere_layers, initial_teff, initial_logg, initial_MH, atmosphere_filename=atmosphere_layers_file, code=code)
+
+
 
 def WriteErrCalcBest(linemasks, model_atmospheres, nlte=False):
     ErrCalc_dir = ispec_dir+mySamOut_dir+"ErrCalc/"
@@ -1025,7 +1045,6 @@ def MasterAbundPack(nlte=False):
                     for line in lines[1:]:
                         data = line.strip().split('\t')
                         array_data = {}
-                        # Parse the columns correctly
                         array_data['element'] = data[0]
                         array_data['[X/H]'] = float(data[1])
                         array_data['dtotal'] = float(data[2])
@@ -1099,7 +1118,7 @@ def NLTECorrAddition(): # Version without parameter re-estimation
         f.writelines(lines[0])
         f.writelines(updated_lines)
 
-def NLTEErrUpdate(): # Add objName as parameter
+def NLTEErrUpdate():
     logging.info("RE-CALCULATING THE ERRORS OF NLTE ABUNDANCES")
     with open(f"mySample3/output/{objName}/ErrCalc/{objName}_ErrMatrix.txt", 'r') as file:
         lines = file.readlines()
@@ -1148,10 +1167,14 @@ def DoAllLists(nlte=False): #To be called with any ONE target
     MasterList(mode='abund', nlte=nlte)
     MasterAbundPack(nlte=nlte)
 
-def CorrectLoggfValues(linemasks): #To correct for self-blends (effective loggf), data from NIST
+def CorrectLoggfValues(linemasks): #To update with recent NIST data, to correct for self-blends (effective loggf)
     corrections = {
         ('C 1', 711.5170): 0.114,
+        ('O 1', 553.0741): 0.113,
+        ('O 1', 615.5971): 0.347,
+        ('O 1', 615.6778): 0.252,
         ('O 1', 615.8187): 0.113,
+        ('Na 1', 568.8205): 0.046,
         ('S 1', 458.9261): -0.087,
         ('S 1', 469.4113): 0.061,
         ('S 1', 469.5443): 0.048,
@@ -1186,9 +1209,8 @@ def CorrectLoggfValues(linemasks): #To correct for self-blends (effective loggf)
 
 def StepReduc(objName, linelist_created=1):
     star_spectrum = ispec.read_spectrum(f'{mySamIn_dir}{objName}.txt')
-    if objName in {"DYOri","STPup","AFCrt","J053150","GZNor","J050304","J005252","BD+152862","AUVul","BD+394926","HD34250","HD75052B","J052204","J053254"}:
-        model_atmospheres = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
-    else:
+    model_atmospheres = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
+    if objName=="CCLyr":
         model_atmospheres = ispec_dir + "input/atmospheres/MARCS.GES/"
     if linelist_created == 0:
         ListCreation(np.min(star_spectrum['waveobs']), np.max(star_spectrum['waveobs']), model_atmospheres)
@@ -1213,11 +1235,13 @@ def StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv):
 
 def StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv):
     linemasks = LineFit(star_spectrum, star_continuum_model, model_atmospheres, rv, mode="pick")
-    linemasks = CorrectLoggfValues(linemasks)
-    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
+    linemasks = CorrectLoggfValues(linemasks)    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     WriteErrCalcBest(linemasks, model_atmospheres)
     abunds = EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     return(linemasks, params, errors, abunds)
+
+def Step4NLTE():
+    interpolate_atmosphere()
 
 def StepNLTE(star_spectrum, star_continuum_model, linemasks, abunds):
     #linemasks = CorrectLoggfValues(linemasks)
@@ -1239,6 +1263,7 @@ if __name__ == '__main__':
     #linemasks = StepFind(star_spectrum, star_continuum_model, model_atmospheres, rv, FeCNO=1)
     #linemasks = StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv)
     linemasks, params, errors, abunds = StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv)
+    #Step4NLTE()
     if not nlte:
         StepErr(star_spectrum, star_continuum_model, model_atmospheres, rv, params, errors)
         DoAllLists() #To be called with any ONE target
