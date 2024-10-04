@@ -1,21 +1,4 @@
-#!/usr/bin/env python
-#
-#    This file is part of iSpec.
-#    Copyright Sergi Blanco-Cuaresma - http://www.blancocuaresma.com/s/
-#
-#    iSpec is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Affero General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    iSpec is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU Affero General Public License for more details.
-#
-#    You should have received a copy of the GNU Affero General Public License
-#    along with iSpec. If not, see <http://www.gnu.org/licenses/>.
-#
+#!/usr/bin/env python3
 import os
 import sys
 import ispec
@@ -41,7 +24,8 @@ logger.setLevel(logging.getLevelName(LOG_LEVEL.upper()))
 Aname, Ateff, Alogg, Amet, Avmic, Acomm = np.loadtxt(ispec_dir + "Spoiler3.txt", delimiter='\t', dtype=np.dtype([('name','<U10'), ('teff',np.float64), ('logg',np.float64), ('met',np.float64), ('vmic',np.float64), ('comm','U5')]), skiprows=1, unpack=True)
 index = (Aname==objName)
 if np.any(index):
-    initial_teff = float(Ateff[index]); initial_logg = float(Alogg[index]); initial_MH = float(Amet[index]); initial_vmic = float(Avmic[index])
+    initial_teff = float(Ateff[index][0]); initial_logg = float(Alogg[index][0])
+    initial_MH = float(Amet[index][0]); initial_vmic = float(Avmic[index][0])
 else:
     initial_teff = 6000.0; initial_logg = 1.0; initial_MH = -2.; initial_vmic = 3.5
 initial_R = 57000.; initial_alpha = 0.4
@@ -1235,7 +1219,8 @@ def StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv):
 
 def StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv):
     linemasks = LineFit(star_spectrum, star_continuum_model, model_atmospheres, rv, mode="pick")
-    linemasks = CorrectLoggfValues(linemasks)    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
+    linemasks = CorrectLoggfValues(linemasks)
+    params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     WriteErrCalcBest(linemasks, model_atmospheres)
     abunds = EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     return(linemasks, params, errors, abunds)
@@ -1257,9 +1242,9 @@ def StepErr(star_spectrum, star_continuum_model, model_atmospheres, rv, params, 
     linemasksErr = ErrStud(star_spectrum, star_continuum_model, model_atmospheres, rv, params, errors, nlte=nlte)
     TotalErrCalc(nlte=nlte)
 
-if __name__ == '__main__':
+def main():
     nlte=False
-    star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err = StepReduc(objName, linelist_created=1)
+    star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err = StepReduc(objName, linelist_created=0)
     #linemasks = StepFind(star_spectrum, star_continuum_model, model_atmospheres, rv, FeCNO=1)
     #linemasks = StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv)
     linemasks, params, errors, abunds = StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv)
@@ -1271,4 +1256,7 @@ if __name__ == '__main__':
         StepNLTE(star_spectrum, star_continuum_model, linemasks, model_atmospheres, abunds)
         StepErr(star_spectrum, star_continuum_model, model_atmospheres, rv, params, errors, nlte)
         DoAllLists(nlte) #To be called with any ONE target
+
+if __name__ == '__main__':
+    main()
     pass
