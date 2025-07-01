@@ -29,7 +29,9 @@ else:
 initial_R = 57000.; initial_alpha = 0.4
 star_spectrum = []; star_continuum_model = []; star_continuum_regions= []
 estimated_snr = []; segments = []; star_linemasks = []
-master_list_targets = [objName]
+master_list_targets = ["SZMon", "DFCyg", "CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri",
+                       "AFCrt", "GZNor", "1504Sco", "J050304", "J053150", "SSGem", "V382Aur", "CCLyr",
+                       "RSct", "AUVul", "BD+394926", "J052204", "J053254"]
 #master_list_targets = ["EPLyr_00508457", "EPLyr_00911320", "EPLyr_01030997"] 
 #master_list_targets = ["SSGem", "V382Aur", "CCLyr", "RSct", "AUVul", "BD+394926", "J052204", "J053254"]
 #--- Change LOG level ----------------------------------------------------------
@@ -131,7 +133,8 @@ def RVCorr(star_spectrum):
         1. Convolves the input stellar spectrum to a specified resolving power.
         2. Filters the convolved spectrum to a specific wavelength range (450–650 nm).
         3. Reads a synthetic template spectrum (default: Arcturus).
-        4. Cross-correlates the filtered stellar spectrum with the template using Fourier-based methods to estimate the radial velocity.
+        4. Cross-correlates the filtered stellar spectrum with the template using Fourier-based 
+        methods to estimate the radial velocity.
         5. Plots and saves the cross-correlation function (CCF) for diagnostic purposes.
         6. Applies the radial velocity correction to the input spectrum.
 
@@ -686,7 +689,8 @@ def LineFitFilt(line_regions, linemasks, ID): # A function to plot the output of
 
 def LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode):
     """
-    Generate diagnostic plots of individual spectral line fits for a given star spectrum and save them to a multi-page PDF.
+    Generate diagnostic plots of individual spectral line fits for a given star spectrum and save them to a 
+    multi-page PDF.
 
     This function processes a stellar spectrum and its corresponding line masks to produce visualizations
     of fitted spectral lines. Each plot displays the observed line, a Gaussian fit, annotated nearby lines
@@ -709,7 +713,8 @@ def LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode):
         - 'ew', 'theoretical_ew' : measured and initial guess equivalent widths (mÅ)
 
     model_atmospheres : object or structured input
-        Data structure used by the 'SynthSpec' function to compute synthetic spectra. Must be compatible with your local 'SynthSpec' implementation.
+        Data structure used by the 'SynthSpec' function to compute synthetic spectra. Must be compatible with your 
+        local 'SynthSpec' implementation.
 
     mode : str
         Plotting mode. Supported values:
@@ -2167,7 +2172,7 @@ def NLTECorrAddition(): # Version without parameter re-estimation
     updated_lines = []
     for line in lines[1:]:
         parts = line.split('\t')
-        elem_array = df[df['el']==parts[0][:-2]]
+        elem_array = df[df['element']==parts[0][:-2]]
         if elem_array.empty:
             updated_lines.append(line)
             continue
@@ -2281,7 +2286,7 @@ def NLTECorrAdditionPars(linemasks): # Version with parameter re-estimation
     - Lines for which no matching element or wavelength is found in the correction file are skipped.
     - A global variable 'objName' is expected to be defined elsewhere in the code. It is used to extract
       the abundance correction value from the correction file for a specific object.
-    - The correction file must contain columns: 'el' (element symbol), 'wavenm' (wavelength in nm), 
+    - The correction file must contain columns: 'element' (element symbol), 'wavenm' (wavelength in nm), 
       and a column corresponding to 'objName' which holds the abundance correction.
     - The function prints diagnostic information before and after applying corrections.
 
@@ -2484,7 +2489,7 @@ def StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_er
     abunds = EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     return(linemasks)
 
-def StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err):
+def StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err, nlte=False):
     """
     Finalize line selection and compute stellar parameters and elemental abundances.
 
@@ -2516,7 +2521,7 @@ def StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err)
     linemasks = LineFit(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err, mode="pick")
     linemasks = CorrectLoggfValues(linemasks)
     params, errors = EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
-    WriteErrCalcBest(linemasks, model_atmospheres)
+    WriteErrCalcBest(linemasks, model_atmospheres, nlte=nlte)
     abunds = EWabund(star_spectrum, star_continuum_model, linemasks, model_atmospheres, code="moog")
     return(linemasks, params, errors, abunds)
 
@@ -2616,15 +2621,13 @@ def main():
     star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err = StepReduc(objName, linelist_created=1)
     #linemasks = StepFind(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err, FeCNO=1)
     #linemasks = StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err)
-    linemasks, params, errors, abunds = StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err)
-    #Step4NLTE()
-    if not nlte:
-        StepErr(star_spectrum, star_continuum_model, model_atmospheres, linemasks, rv, params, errors)
-        DoAllLists() #To be called with any ONE target
-    else:
-        StepNLTE(star_spectrum, star_continuum_model, linemasks, model_atmospheres, abunds)
-        StepErr(star_spectrum, star_continuum_model, model_atmospheres, linemasks, rv, params, errors, nlte)
-        DoAllLists(nlte) #To be called with any ONE target
+    linemasks, params, errors, abunds = StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, 
+                                                 rv_err, nlte=nlte)
+    if nlte:
+        #Step4NLTE()
+        StepNLTE(star_spectrum, star_continuum_model, linemasks, abunds)
+    StepErr(star_spectrum, star_continuum_model, model_atmospheres, linemasks, rv, params, errors, nlte)
+    DoAllLists(nlte) #To be called with any ONE target
 
 if __name__ == '__main__':
     main()
