@@ -780,7 +780,7 @@ def LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode):
                     "/input/abundances/chemical_elements_symbols.dat")
         ID = chemical_elements['atomic_num'][chemical_elements['symbol']==linemasks['element'][i][:-2]]
         global initial_MH
-        abund = solar_abundances['Abund'][solar_abundances['code']==ID]+12.036+initial_MH
+        abund = solar_abundances['Abund'][solar_abundances['code']==ID][0]+12.036+initial_MH
         
         fig = plt.figure(figsize=(11,8))
         ax = fig.add_subplot(1,1,1)
@@ -892,7 +892,7 @@ def SynthSpec(star_spectrum, regions, model_atmospheres, abund=0., code='turbosp
     if abund!=0.:
         fixed_abundances = ispec.create_free_abundances_structure([regions['element'][:-2]], \
                     chemical_elements, solar_abundances)
-        fixed_abundances['Abund'] = [abund-12.036]
+        fixed_abundances['Abund'] = abund-12.036
     else:
         fixed_abundances=None
     # Synthesis
