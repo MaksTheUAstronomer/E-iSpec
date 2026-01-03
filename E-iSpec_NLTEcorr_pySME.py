@@ -83,7 +83,7 @@ def synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, v
             if target_elem=='Fe':
                 print(f"Converged for [Fe/H] = {sme.monh:.2f} dex")
             else:
-                print(f"Converged for [X/Fe] = {sme.abund:.2f} dex")
+                print(f"Converged for [X/Fe] = {sme.abund[target_elem]:.2f} dex")
             is_converged = True
 
     #wave_lte, flux_lte = sme.wave[0].copy(), sme.synth[0].copy()
