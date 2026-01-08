@@ -794,7 +794,7 @@ def LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode):
         # Add pointers with elements to significant lines (those with EW > 0.1 * EW of the identified line)
         significant_linelist = atomic_linelist[atomic_linelist['wave_nm']>from_x] # OR spec['waveobs'][0]
         significant_linelist = significant_linelist[significant_linelist['wave_nm']<to_x] # OR spec['waveobs'][-1]
-        significant_linelist = significant_linelist[significant_linelist['theoretical_ew']/linemasks['ew'][i]>0.1]
+        significant_linelist = significant_linelist[significant_linelist['theoretical_ew']/np.max(significant_linelist['theoretical_ew'])>0.1] # linemasks['ew'][i]
         for line in significant_linelist:
             plt.annotate(line['element'], xy=(line['wave_nm'], 1.02), xytext=(line['wave_nm'], 1.12), rotation=90, 
                         ha='center', fontsize=15, arrowprops=dict(arrowstyle="-", facecolor='black', lw=2))
