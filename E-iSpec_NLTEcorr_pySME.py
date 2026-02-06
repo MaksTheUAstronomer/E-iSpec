@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sys
 import gc
+import os
 
 from pysme.sme import SME_Structure
 from pysme.abund import Abund
@@ -214,6 +215,8 @@ def plot_spectra(monh, fit_monh, abund, fit_abund, fit_fitresults, target_elem_i
     plt.legend()
     plt.xlabel(r'Wavelength ($\mathrm{\AA}$)');
     plt.ylabel('Normalized flux');
+    if not os.path.exists(f'PNGs/{target_name}'):
+         os.makedirs(f'PNGs/{target_name}')
     plt.savefig(f'PNGs/{target_name}/{"".join(target_elem_ion.split())}_'+
                 f'{target_wav:.3f}_{target_name}.png', bbox_inches='tight', pad_inches=0)
     plt.close()
@@ -263,6 +266,8 @@ def main():
     df_abridged = df[df['element']==target_elem_ion].reset_index(drop=True)
     del df
 
+    if not os.path.exists(f'corrs/{target_name}'):
+         os.makedirs(f'corrs/{target_name}')
     with open(f'corrs/{target_name}/{"".join(target_elem_ion.split())}_{target_name}_NLTE_corrections.txt', 'w') as fOut:
         for i in range(len(df_abridged['wave_nm'])):
             if df_abridged[target_name][i] == "-":
