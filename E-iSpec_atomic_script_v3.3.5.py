@@ -5,13 +5,13 @@ import ispec
 import numpy as np
 import logging
 import multiprocessing
-from multiprocessing import Pool
+#from multiprocessing import Pool
 
 #--- Paths definitions ---------------------------------------------------------
 objName = sys.argv[1]
 ispec_dir = os.path.dirname(os.path.realpath(__file__)) + "/"
-mySamIn_dir = "mySampleAll/input/%s/" % objName
-mySamOut_dir = "mySampleAll/output/%s/" % objName
+mySamIn_dir = "mySampleExtreme/input/%s/" % objName
+mySamOut_dir = "mySampleExtreme/output/%s/" % objName
 if not os.path.exists(mySamOut_dir):
     os.makedirs(mySamOut_dir)
 sys.path.insert(0, os.path.abspath(ispec_dir))
@@ -25,13 +25,15 @@ if np.any(index):
     initial_teff = float(Ateff[index][0]); initial_logg = float(Alogg[index][0])
     initial_MH = float(Amet[index][0]); initial_vmic = float(Avmic[index][0])
 else:
-    initial_teff = 6000.0; initial_logg = 1.0; initial_MH = -2.; initial_vmic = 3.5
+    initial_teff = 6000.; initial_logg = 1.; initial_MH = -2.; initial_vmic = 3.5
 initial_R = 57000.; initial_alpha = 0.4
 star_spectrum = []; star_continuum_model = []; star_continuum_regions= []
 estimated_snr = []; segments = []; star_linemasks = []
-master_list_targets = ["SZMon", "DFCyg", "CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri",
-                       "AFCrt", "GZNor", "1504Sco", "J050304", "J053150", "SSGem", "V382Aur", "CCLyr",
-                       "RSct", "AUVul", "BD+394926", "J052204", "J053254"]
+master_list_targets = ["BD+033950", "HPLyr", "IRAS15469", "PSGem", "UYCMa", "IWCar",
+                       "AGAnt", "HMAqr", "V777Mon"]
+#master_list_targets = ["SZMon", "DFCyg", "CTOri", "STPup", "RUCen", "ACHer", "ADAql", "EPLyr", "DYOri",
+#                       "AFCrt", "GZNor", "1504Sco", "J050304", "J053150", "SSGem", "V382Aur", "CCLyr",
+#                       "RSct", "AUVul", "BD+394926", "J052204", "J053254"]
 #master_list_targets = ["EPLyr_00508457", "EPLyr_00911320", "EPLyr_01030997"] 
 #master_list_targets = ["SSGem", "V382Aur", "CCLyr", "RSct", "AUVul", "BD+394926", "J052204", "J053254"]
 #--- Change LOG level ----------------------------------------------------------
@@ -543,7 +545,7 @@ def LineFit(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err, 
                 check_derivatives = False, \
                 vel_telluric = None, discard_gaussian=False, \
                 discard_voigt=True, \
-                free_mu=True, crossmatch_with_mu=False, closest_match=False)
+                free_mu=False, crossmatch_with_mu=False, closest_match=False)
     line_regions.sort(order='wave_peak'); linemasks.sort(order='wave_peak')
     linemasks = LineFitFilt(line_regions, linemasks, ID)
     LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode)
@@ -601,7 +603,7 @@ def LineFitFilt(line_regions, linemasks, ID): # A function to plot the output of
     -----
     - Uses global variables: 'ispec_dir', 'mySamOut_dir', and 'objName'.
     - Intended for use in post-processing steps of iSpec spectral analysis pipelines.
-    - Lines with EW <= 5 or EW >= 350 are discarded to avoid overly weak or saturated lines.
+    - [COMMENTED OUT] Lines with EW <= 5 or EW >= 350 are discarded to avoid overly weak or saturated lines.
     - Logging info includes counts per element and total number of retained lines.
 
     Example
@@ -646,8 +648,8 @@ def LineFitFilt(line_regions, linemasks, ID): # A function to plot the output of
         f.write('%.4f\t%.4f\t%.4f\t%s\n' % (l['wave_peak'], l['wave_base'], l['wave_top'], l['element']))
     f.close()
     #############################################################################  
-    linemasks = linemasks[linemasks['ew']>5.]#5
-    linemasks = linemasks[linemasks['ew']<350.]#250
+    #linemasks = linemasks[linemasks['ew']>5.]#5
+    #linemasks = linemasks[linemasks['ew']<350.]#250
     linemasks.sort(order='spectrum_moog_species')
     #############################################################################    
     f = open(LineFitOut_dir+objName+"_linemask_AfterEWFilter", "w")
@@ -791,10 +793,10 @@ def LineFitPlot(star_spectrum, linemasks, model_atmospheres, mode):
                     i+1,len(linemasks), linemasks['ew'][i], linemasks['theoretical_ew'][i]))
         ax.plot(spec['waveobs'], spec['flux'], '-k', label='Observed spectrum')
         
-        # Add pointers with elements to significant lines (those with EW > 0.1 * EW of the identified line)
-        significant_linelist = atomic_linelist[atomic_linelist['wave_nm']>from_x] # OR spec['waveobs'][0]
-        significant_linelist = significant_linelist[significant_linelist['wave_nm']<to_x] # OR spec['waveobs'][-1]
-        significant_linelist = significant_linelist[significant_linelist['theoretical_ew']/np.max(significant_linelist['theoretical_ew'])>0.1] # linemasks['ew'][i]
+        # Add pointers with elements to lines with EW>5 mA
+        significant_linelist = atomic_linelist[atomic_linelist['wave_nm']>spec['waveobs'][0]]
+        significant_linelist = significant_linelist[significant_linelist['wave_nm']<spec['waveobs'][-1]]
+        significant_linelist = significant_linelist[significant_linelist['theoretical_ew']/linemasks['ew'][i]>0.05]
         for line in significant_linelist:
             plt.annotate(line['element'], xy=(line['wave_nm'], 1.02), xytext=(line['wave_nm'], 1.12), rotation=90, 
                         ha='center', fontsize=15, arrowprops=dict(arrowstyle="-", facecolor='black', lw=2))
@@ -1034,8 +1036,8 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
                         enhance_abundances=True, \
                         #outliers_detection = "robust", \
                         #outliers_weight_limit = 0.90, \
-                        outliers_detection = "sigma_clipping", \
-                        sigma_level = 50., \
+                        #outliers_detection = "sigma_clipping", \
+                        #sigma_level = 50., \
                         tmp_dir = None, \
                         code=code) #"teff", "logg", "vmic"
     params, errors, status, x_over_h, selected_x_over_h, fitted_lines_params, used_linemasks = results
@@ -1045,7 +1047,8 @@ def EWparam(star_spectrum, star_continuum_model, linemasks, model_atmospheres, c
     CnstrPlot(linemasks, x_over_h, nlte)
     
     ##--- Uncertainty fix for extremely metal-poor targets ---------------------
-    if objName in {'CCLyr'}:
+    XMetalPoor = {'CCLyr', 'PSGem', 'AGAnt'}
+    if objName in XMetalPoor:
         max_errors = {'teff': 250., 'logg': 0.5, 'vmic': 1.}
         errors = {key: min(value, max_errors[key]) if key in max_errors else value for key, 
                     value in errors.items()}
@@ -1778,30 +1781,26 @@ def TotalErrCalc(nlte=False):
                     f'{dtotal_values[i]:.2f}'])
 
     # Write all data to "..._ErrMatrix(_NLTE).txt"
-    if nlte:
-        fileMtrx = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_ErrMatrix_NLTE.txt', 'w')
-    else:
+    if not nlte:
         fileMtrx = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_ErrMatrix.txt', 'w')
         # Write headers
         fileMtrx.write('\t'.join(headers) + '\n')
         # Write data rows
         for row in data:
             fileMtrx.write('\t'.join(row) + '\n')
-    fileMtrx.close()
+        fileMtrx.close()
 
     # Write only element, abund, and total error to "..._FinalErr(_NLTE).txt"
-    if nlte:
-        fileFnl = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_FinalErr_NLTE.txt', 'w')
-    else:
+    if not nlte:
         fileFnl = open(f'{ispec_dir}{mySamOut_dir}ErrCalc/{objName}_FinalErr.txt', 'w')
-    # Write headers
-    fileFnl.write(f'{headers[0]}\t{headers[1]}\t{headers[-1]}\n')
-    # Write data rows
-    for row in data:
-        fileFnl.write(f'{row[0]}\t{row[1]}\t{row[-1]}\n')
-    fileFnl.close()
+        # Write headers
+        fileFnl.write(f'{headers[0]}\t{headers[1]}\t{headers[-1]}\n')
+        # Write data rows
+        for row in data:
+            fileFnl.write(f'{row[0]}\t{row[1]}\t{row[-1]}\n')
+        fileFnl.close()
 
-def custom_sort(element):
+def CustomSort(element):
     """
     Returns the index of the given element in a predefined sorting order (atomic number).
 
@@ -1829,10 +1828,10 @@ def custom_sort(element):
 
     Example:
     --------
-    >>> custom_sort({'element': 'Fe 1'})
+    >>> CustomSort({'element': 'Fe 1'})
     22
 
-    >>> sorted(elements, key=custom_sort)
+    >>> sorted(elements, key=CustomSort)
     # Sorts a list of dictionaries by the custom element order
     """
     sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Mg 2', 'Al 1', 'Si 1', 'Si 2', 'S 1', 
@@ -1873,10 +1872,10 @@ def MasterList(mode, nlte=False): #line/abund
     Output:
     -------
     A TSV file is saved to:
-        - "mySampleAll/output/MasterLineList.txt" if mode is ''line'' and 'nlte' is False
-        - "mySampleAll/output/MasterLineList_NLTE.txt" if mode is ''line'' and 'nlte' is True
-        - "mySampleAll/output/MasterAbundList.txt" if mode is ''abund'' and 'nlte' is False
-        - "mySampleAll/output/MasterAbundList_NLTE.txt" if mode is ''abund'' and 'nlte' is True
+        - "mySampleExtreme/output/MasterLineList.txt" if mode is ''line'' and 'nlte' is False
+        - "mySampleExtreme/output/MasterLineList_NLTE.txt" if mode is ''line'' and 'nlte' is True
+        - "mySampleExtreme/output/MasterAbundList.txt" if mode is ''abund'' and 'nlte' is False
+        - "mySampleExtreme/output/MasterAbundList_NLTE.txt" if mode is ''abund'' and 'nlte' is True
 
     Raises:
     -------
@@ -1887,10 +1886,10 @@ def MasterList(mode, nlte=False): #line/abund
     ------
     - The function relies on the global variable 'master_list_targets', which should
       be a list of target names (strings) that correspond to the directories in the file paths.
-    - Uses 'custom_sort()' for ordering rows in the final output; this function must be 
+    - Uses 'CustomSort()' for ordering rows in the final output; this function must be 
       defined elsewhere in the program.
     - Assumes all input files are tab-delimited and located in subdirectories under 
-      "mySampleAll/output/<target>/".
+      "mySampleExtreme/output/<target>/".
 
     Example Usage:
     --------------
@@ -1902,14 +1901,14 @@ def MasterList(mode, nlte=False): #line/abund
         for target in targets:
             if mode=='line':
                 file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                            f"mySampleAll/output/{target}/LineFitOutput/{target}_LineFit.txt")
+                            f"mySampleExtreme/output/{target}/LineFitOutput/{target}_LineFit.txt")
             elif mode=='abund':
                 if nlte:
                     file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                                f"mySampleAll/output/{target}/{target}_res_IndivAbund_NLTE.txt")
+                                f"mySampleExtreme/output/{target}/{target}_res_IndivAbund_NLTE.txt")
                 else:
                     file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                                f"mySampleAll/output/{target}/{target}_res_IndivAbund.txt")
+                                f"mySampleExtreme/output/{target}/{target}_res_IndivAbund.txt")
             arrays[target] = {'columns': [], 'data': []}
             with open(file_path, 'r') as file:
                 try:
@@ -1950,14 +1949,14 @@ def MasterList(mode, nlte=False): #line/abund
     # Write the master dictionary into the "MasterLineList.txt" file
     if nlte:
         if mode=='line':
-            filenameOut = "mySampleAll/output/MasterLineList_NLTE.txt"
+            filenameOut = "mySampleExtreme/output/MasterLineList_NLTE.txt"
         elif mode=='abund':
-            filenameOut = "mySampleAll/output/MasterAbundList_NLTE.txt"
+            filenameOut = "mySampleExtreme/output/MasterAbundList_NLTE.txt"
     else:
         if mode=='line':
-            filenameOut = "mySampleAll/output/MasterLineList.txt"
+            filenameOut = "mySampleExtreme/output/MasterLineList.txt"
         elif mode=='abund':
-            filenameOut = "mySampleAll/output/MasterAbundList.txt"
+            filenameOut = "mySampleExtreme/output/MasterAbundList.txt"
     with open(filenameOut, "w") as master_file:
         # Write header
         master_file.write("element\twave_nm\tloggf\tlower_state_eV\t")
@@ -1965,7 +1964,7 @@ def MasterList(mode, nlte=False): #line/abund
         master_file.write("\n")
 
         # Write sorted data
-        for wave_nm, data in sorted(master_dict.items(), key=lambda x: (custom_sort(x[1]), x[0])):
+        for wave_nm, data in sorted(master_dict.items(), key=lambda x: (CustomSort(x[1]), x[0])):
             master_file.write(f"{data['element']}\t{wave_nm:.4f}\t{data['loggf']:.3f}\t{data['lower_state_eV']:.3f}\t")
             master_file.write("\t".join(f"{data.get(target, '-'):.2f}" if 
                         isinstance(data.get(target), float) else f"{data.get(target, '-')}" for target in targets))
@@ -1985,7 +1984,7 @@ def MasterAbundPack(nlte=False):
     The function processes input files formatted as tab-separated values with a header and 
     three columns: element name, abundance ([X/H]), and total uncertainty (dtotal). 
     It expects files to be located at:
-        mySampleAll/output/{target}/ErrCalc/{target}_FinalErr[OptionalNLTE].txt
+        mySampleExtreme/output/{target}/ErrCalc/{target}_FinalErr[OptionalNLTE].txt
 
     The final output file contains each target as a row, with abundances and uncertainties 
     listed in a fixed order of elements (defined in 'sorting_order'). If an element is 
@@ -2000,7 +1999,7 @@ def MasterAbundPack(nlte=False):
     Output:
     ------
     A master file is written to:
-        mySampleAll/output/MasterAbundPack[OptionalNLTE].txt
+        mySampleExtreme/output/MasterAbundPack[OptionalNLTE].txt
 
     The format of the file is:
         Target <element1> <element1_err> <element2> <element2_err> ... 
@@ -2024,7 +2023,7 @@ def MasterAbundPack(nlte=False):
             else:
                 nlteAdd = '_NLTE'
             file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                        f"mySampleAll/output/{target}/ErrCalc/{target}_FinalErr{nlteAdd}.txt")
+                        f"mySampleExtreme/output/{target}/ErrCalc/{target}_FinalErr{nlteAdd}.txt")
             arrays[target] = {'columns': [], 'data': []}
             with open(file_path, 'r') as file:
                 try:
@@ -2051,7 +2050,7 @@ def MasterAbundPack(nlte=False):
     else:
         nlteAdd = '_NLTE'
     master_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                f"mySampleAll/output/MasterAbundPack{nlteAdd}.txt")
+                f"mySampleExtreme/output/MasterAbundPack{nlteAdd}.txt")
     with open(master_file_path, "w") as master_file:
         # Write header
         sorting_order = ['C 1', 'N 1', 'O 1', 'Na 1', 'Mg 1', 'Mg 2', 'Al 1', 'Si 1', 'Si 2', 'S 1', 
@@ -2103,7 +2102,7 @@ def DoAllLists(nlte=False): #To be called with any ONE target
 
     Output:
     -------
-    The function produces the following output files in the 'mySampleAll/output/' directory:
+    The function produces the following output files in the 'mySampleExtreme/output/' directory:
         - MasterLineList[Optional_NLTE].txt
         - MasterAbundList[Optional_NLTE].txt
         - MasterAbundPack[Optional_NLTE].txt
@@ -2142,9 +2141,9 @@ def NLTECorrAddition(): # Version without parameter re-estimation
     - The NumPy module ('np') must be imported and available in the global scope.
 
     File Operations:
-    - Reads the NLTE correction values from 'mySampleAll/output/result_all.txt'.
-    - Reads original abundance results from 'mySampleAll/output/{objName}/{objName}_res_IndivAbund.txt'.
-    - Writes corrected abundance results to 'mySampleAll/output/{objName}/{objName}_res_IndivAbund_NLTE.txt'.
+    - Reads the NLTE correction values from 'mySampleExtreme/output/result_all.txt'.
+    - Reads original abundance results from 'mySampleExtreme/output/{objName}/{objName}_res_IndivAbund.txt'.
+    - Writes corrected abundance results to 'mySampleExtreme/output/{objName}/{objName}_res_IndivAbund_NLTE.txt'.
 
     NLTE corrections are only applied when:
     - The element identifier matches (ignoring the last two characters of the element string).
@@ -2156,36 +2155,52 @@ def NLTECorrAddition(): # Version without parameter re-estimation
     - The header line of the original abundance file is preserved.
 
     Logs:
-    - Logs a message indicating the start of the NLTE correction process.
+    - Logs messages indicating the start and the progression of the NLTE correction process.
 
     Returns:
     None
     """
-    logging.info("CORRECTING ABUNDANCES FOR NLTE EFFECTS")
     import pandas as pd
-    df = pd.read_fwf(f"mySampleAll/output/result_all.txt", sep='\t', header=0, index_col=False)
+    global objName
+    logging.info("CORRECTING ABUNDANCES FOR NLTE EFFECTS")
+    df = pd.read_fwf(f"mySampleExtreme/output/result_all.txt", sep='\t', header=0, index_col=False)
     df.replace([-1000.0], np.nan, inplace=True)
 
-    with open(f"mySampleAll/output/{objName}/{objName}_res_IndivAbund.txt", 'r') as file:
+    with open(f"mySampleExtreme/output/{objName}/{objName}_res_IndivAbund.txt", 'r') as file:
         lines = file.readlines()
 
     updated_lines = []
     for line in lines[1:]:
         parts = line.split('\t')
-        elem_array = df[df['element']==parts[0][:-2]]
+        elem_array = df[df['element']==parts[0]]
+        logging.info(f"NOW ANALYSING line of {parts[0]} at {float(parts[1]):.2f} nm")
         if elem_array.empty:
+            logging.info("Null NLTE correction due to element mismatch")
             updated_lines.append(line)
             continue
-        line_array = elem_array[abs(elem_array['wavenm']-float(parts[1]))<0.01]
+        line_array = elem_array[abs(elem_array['wave_nm']-float(parts[1]))<0.01]
         if line_array.empty:
+            logging.info("Null NLTE correction due to wavelength mismatch")
             updated_lines.append(line)
             continue
-        abund = float(line_array[objName])
-        updated_value = float(parts[-1]) + abund
-        updated_line = '\t'.join(parts[:-1]) + f'\t{updated_value:.2f}\n'
+        print(line_array[::3])
+        print(line_array[objName])
+        abund = float(line_array[objName].iloc[0])
+        updated_logeps = float(parts[-4]) + abund
+        updated_xh = float(parts[-2]) + abund
+        updated_xfe = float(parts[-1]) + abund
+        updated_line = '\t'.join(
+            [
+                *parts[:-4],
+                f'{updated_logeps:.2f}',
+                f'{float(parts[-3]):.2f}',
+                f'{updated_xh:.2f}',
+                f'{updated_xfe:.2f}',
+            ]
+        ) + '\n'
         updated_lines.append(updated_line)
 
-    with open(f"mySampleAll/output/{objName}/{objName}_res_IndivAbund_NLTE.txt", "w") as f:
+    with open(f"mySampleExtreme/output/{objName}/{objName}_res_IndivAbund_NLTE.txt", "w") as f:
         f.writelines(lines[0])
         f.writelines(updated_lines)
 
@@ -2207,7 +2222,7 @@ def NLTEErrUpdate():
 
     Output:
     Writes the updated results to a file named '{objName}_FinalErr_NLTE.txt' located in the 
-    'mySampleAll/output/{objName}/ErrCalc/' directory. This file contains:
+    'mySampleExtreme/output/{objName}/ErrCalc/' directory. This file contains:
     - A header line: 'element\t[X/H]\tdtotal'
     - One line per element with updated abundance and error in tab-separated format.
 
@@ -2229,24 +2244,39 @@ def NLTEErrUpdate():
     - ValueError if file contents are not in expected format or contain non-numeric values.
     """
     logging.info("RE-CALCULATING THE ERRORS OF NLTE ABUNDANCES")
-    with open(f"mySampleAll/output/{objName}/ErrCalc/{objName}_ErrMatrix.txt", 'r') as file:
+    with open(f"mySampleExtreme/output/{objName}/ErrCalc/{objName}_ErrMatrix.txt", 'r') as file:
         lines = file.readlines()
-    with open(f"mySampleAll/output/{objName}/{objName}_res_IndivAbund_NLTE.txt", 'r') as file:
+    with open(f"mySampleExtreme/output/{objName}/{objName}_res_IndivAbund_NLTE.txt", 'r') as file:
         abunds = file.readlines()
 
     updated_lines = []
     for line in lines[1:]:
         parts = line.split('\t')
         elem_name = parts[0]
-        elem_array = [float(abund.split('\t')[4]) for abund in abunds if abund.split('\t')[0] == elem_name]
-        if elem_array:  # Check if the array is not empty
+        elem_array = [float(abund.split('\t')[-2]) for abund in abunds if abund.split('\t')[0] == elem_name]
+        if len(elem_array)>1:  # Checking if the array is not empty
             abund = np.nanmean(elem_array)
             error = np.nanstd(elem_array)
             total_error = np.sqrt(float(parts[-1])**2 - float(parts[2])**2 + error**2)
+            logging.info(f"Replacing LTE abundance ({float(parts[1]):.2f}) with NLTE abundance ({abund:.2f})"+
+                          " in ..._IndivAbund_NLTE.txt")
             updated_line = f'{parts[0]}\t{abund:.2f}\t{total_error:.2f}\n'
             updated_lines.append(updated_line)
+        elif len(elem_array)==1:
+            abund = elem_array[0]
+            total_error = np.sqrt(float(parts[-1])**2 - float(parts[2])**2 + 0.1**2)
+            logging.info(f"Replacing LTE abundance ({float(parts[1]):.2f}) with NLTE abundance ({abund})"+
+                          " in ..._IndivAbund_NLTE.txt")
+            updated_line = f'{parts[0]}\t{abund}\t{total_error:.2f}\n'
+            updated_lines.append(updated_line)
+        else:
+            abund = np.nan; total_error = np.nan
+            logging.info(f"Replacing LTE abundance ({float(parts[1]):.2f}) with NLTE abundance ({abund})"+
+                          " in ..._IndivAbund_NLTE.txt")
+            updated_line = f'{parts[0]}\t{abund}\t{total_error}\n'
+            updated_lines.append(updated_line)
 
-    with open(f"mySampleAll/output/{objName}/ErrCalc/{objName}_FinalErr_NLTE.txt", "w") as f:
+    with open(f"mySampleExtreme/output/{objName}/ErrCalc/{objName}_FinalErr_NLTE.txt", "w") as f:
         f.writelines('element\t[X/H]\tdtotal\n')
         f.writelines(updated_lines)
 
@@ -2256,7 +2286,7 @@ def NLTECorrAdditionPars(linemasks): # Version with parameter re-estimation
 
     This function modifies the input 'linemasks' by updating their equivalent widths ('ew') and 
     logarithmic reduced equivalent widths ('ewr') based on NLTE abundance corrections. It reads 
-    correction data from an external fixed-width formatted file ('mySampleAll/output/result_fe.txt') 
+    correction data from an external fixed-width formatted file ('mySampleExtreme/output/result_fe.txt') 
     and adjusts the 'ewr' value by adding the appropriate NLTE abundance. The corresponding 'ew' is 
     recalculated using the updated 'ewr'.
 
@@ -2295,11 +2325,11 @@ def NLTECorrAdditionPars(linemasks): # Version with parameter re-estimation
     KeyError:
         If any of the expected dictionary keys are missing from a 'linemasks' entry.
     FileNotFoundError:
-        If the file 'mySampleAll/output/result_fe.txt' cannot be found.
+        If the file 'mySampleExtreme/output/result_fe.txt' cannot be found.
     """
     logging.info("CORRECTING LINEMASKS FOR NLTE EFFECTS")
     import pandas as pd
-    df = pd.read_fwf("mySampleAll/output/result_fe.txt", sep='\t', header=0, index_col=False)
+    df = pd.read_fwf("mySampleExtreme/output/result_fe.txt", sep='\t', header=0, index_col=False)
     df.replace([-1000.0], np.nan, inplace=True)
 
     for line in linemasks:
@@ -2336,7 +2366,7 @@ def CorrectLoggfValues(linemasks): #To update with recent NIST data, to correct 
 
     Returns:
     --------
-    list of dict
+    linemasks : list of dict
         The updated list of spectral line dictionaries, with corrected 'loggf' values for lines 
         that match the correction criteria.
 
@@ -2361,6 +2391,10 @@ def CorrectLoggfValues(linemasks): #To update with recent NIST data, to correct 
         ('O 1', 615.6778): 0.252,
         ('O 1', 615.8187): 0.113,
         ('Na 1', 568.8205): 0.046,
+        ('Mg 1', 517.2684): 0.057,
+        ('Mg 1', 518.3604): 0.072,
+        ('Si 1', 864.8465): -0.088,
+        ('Si 2', 637.1371): -0.042,
         ('S 1', 458.9261): -0.087,
         ('S 1', 469.4113): 0.061,
         ('S 1', 469.5443): 0.048,
@@ -2369,18 +2403,17 @@ def CorrectLoggfValues(linemasks): #To update with recent NIST data, to correct 
         ('S 1', 605.2656): 0.157,
         ('S 1', 674.8790): 0.103,
         ('S 1', 869.4710): 0.312,
-        ('Cu 1', 570.0237): 0.253,
-        ('Na 1', 568.8205): 0.046,
-        ('Mg 1', 517.2684): 0.057,
-        ('Mg 1', 518.3604): 0.072,
-        ('Si 1', 864.8465): -0.088,
-        ('Si 2', 637.1371): -0.042,
         ('Ca 1', 428.3011): -0.088,
         ('Ca 1', 431.8652): -0.070,
         ('Ca 1', 558.8749): -0.148,
         ('Ca 1', 559.8480): -0.143,
         ('Ca 1', 643.9075): 0.080,
+        ('Ca 2', 849.8129): 1.779,
+        ('Mn 1', 403.0750): 0.014,
+        ('Mn 1', 403.3060): 0.027,
+        ('Mn 1', 403.4480): 0.030,
         ('Co 1', 481.3476): 0.010,
+        ('Cu 1', 570.0237): 0.253,
         ('Eu 2', 664.5094): 0.282
     }
     wave_delta = 0.01
@@ -2421,10 +2454,13 @@ def StepReduc(objName, linelist_created=1):
             Estimated error in the radial velocity measurement.
     """
     star_spectrum = ispec.read_spectrum(f'{mySamIn_dir}{objName}.txt')
-    model_atmospheres = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
     if objName=="CCLyr":
         model_atmospheres = ispec_dir + "input/atmospheres/MARCS.GES/"
-    if linelist_created == 0:
+    elif objName=="UYCMa" or objName=="PSGem" or objName=="AGAnt":
+        model_atmospheres = ispec_dir + "input/atmospheres/ATLAS9.Kirby/"
+    else:
+        model_atmospheres = ispec_dir + "input/atmospheres/ATLAS9.KuruczODFNEW/"
+    if linelist_created==0:
         ListCreation(np.min(star_spectrum['waveobs']), np.max(star_spectrum['waveobs']), model_atmospheres)
     #star_spectrum = ContFitAndNorm(star_spectrum)
     star_continuum_model = ispec.fit_continuum(star_spectrum, fixed_value=1.0, model="Fixed value")
@@ -2661,14 +2697,13 @@ def main():
     Returns:
         None
     """
-    nlte=False
+    nlte=True
     star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err = StepReduc(objName, linelist_created=1)
     #linemasks = StepFind(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err, FeCNO=1)
     #linemasks = StepFilter(star_spectrum, star_continuum_model, model_atmospheres, rv, rv_err)
-    linemasks, params, errors, abunds = StepStud(star_spectrum, star_continuum_model, model_atmospheres, rv, 
-                                                 rv_err, nlte=nlte)
-    #StepFinal(star_spectrum, star_continuum_model, model_atmospheres, linemasks, rv, params, errors,
-    #          abunds, nlte=nlte)
+    linemasks, params, errors, abunds = StepStud(star_spectrum,star_continuum_model,model_atmospheres,rv,rv_err,nlte=nlte)
+    StepFinal(star_spectrum, star_continuum_model, model_atmospheres, linemasks, rv, params, errors,
+              abunds, nlte=nlte)
 
 if __name__ == '__main__':
     main()
