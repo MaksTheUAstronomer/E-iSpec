@@ -8,6 +8,10 @@ import pandas as pd
 import sys
 import gc
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from pysme.sme import SME_Structure
 from pysme.abund import Abund
@@ -33,7 +37,7 @@ def read_atmo_params(target_name, target_elem):
         elemonh = monh
     else:
         elemonh = 0.
-    del df
+    del df; gc.collect()
     return(teff, logg, monh, vmic, vmac, vsini, elemonh)
 
 def synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, vmac, vsini, \
@@ -67,7 +71,7 @@ def synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, v
               f"A(Fe) = {sme.abund['Fe']:.2f} dex <--- Metallicity-Scaled Solar")
     # +[X/Fe] = +[X/H]-[Fe/H]; -monh is necessary to counteract the automatically adding +monh
     # Synthesize the LTE spectrum.
-    sme = synthesize_spectrum(sme)
+    synthesize_spectrum(sme)
 
     # Correct for observed EW.
     summed_ew = integrate_EW(sme.wave[0], sme.synth[0]); print(f'First guess LTE EW = {summed_ew:.1f} mA')
@@ -77,14 +81,13 @@ def synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, v
             sme.monh += np.round(np.log10(target_ew/summed_ew), 4)
         else:
             sme.abund[target_elem] += np.round(np.log10(target_ew/summed_ew) -sme.monh, 4)
-        sme1 = synthesize_spectrum(sme)
-        summed_ew = integrate_EW(sme1.wave[0], sme1.synth[0]); print(f'Iterating LTE EW = {summed_ew:.1f} mA')
-        del sme1; gc.collect()
+        synthesize_spectrum(sme)
+        summed_ew = integrate_EW(sme.wave[0], sme.synth[0]); print(f'Iterating LTE EW = {summed_ew:.1f} mA')
         if abs(target_ew-summed_ew)<5e-2:
             if target_elem=='Fe':
                 print(f"Converged for [Fe/H] = {sme.monh:.2f} dex")
             else:
-                print(f"Converged for [X/Fe] = {sme.abund[target_elem]:.2f} dex")
+                print(f"Converged for A(X) = {sme.abund[target_elem]:.2f} dex")
             is_converged = True
 
     #wave_lte, flux_lte = sme.wave[0].copy(), sme.synth[0].copy()
@@ -96,6 +99,10 @@ def synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, v
     #sme = synthesize_spectrum(sme)
     #wave_nlte, flux_nlte = sme.wave[0].copy(), sme.synth[0].copy()
 
+    try:
+        sme.nlte.clear()
+    except Exception:
+        pass
     del sme; gc.collect()
 
     return(wave_obs, flux_obs)
@@ -125,7 +132,7 @@ def fit_nlte(wave_obs, flux_obs, target_elem, target_wav, teff, logg, monh, vmic
     else:
         sme_fit.nlte.set_nlte(target_elem)
     sme_fit.accwi = 0.00001
-    sme_fit.accft = 0.000005
+    sme_fit.accft = 0.00001
 
     # Fit the spectra
     if target_elem=='Fe':
@@ -152,6 +159,10 @@ def fit_nlte(wave_obs, flux_obs, target_elem, target_wav, teff, logg, monh, vmic
     output = [sme_fit.wave[0], sme_fit.synth[0], sme_fit.monh, sme_fit.abund[target_elem], 
               sme_fit.fitresults["fit_uncertainties"][0], status]
 
+    try:
+        sme_fit.nlte.clear()
+    except Exception:
+        pass
     del sme_fit; gc.collect()
 
     return(output)
@@ -169,7 +180,7 @@ def correct_lte(wave_nlte, flux_nlte, target_elem, target_wav, teff, logg, monh,
     sme_corr.uncs = flux_nlte / s_n
     sme_corr.linelist = linelist
     sme_corr.accwi = 0.00001
-    sme_corr.accft = 0.000005
+    sme_corr.accft = 0.00001
 
     # Fit the spectra
     if target_elem=='Fe':
@@ -184,6 +195,10 @@ def correct_lte(wave_nlte, flux_nlte, target_elem, target_wav, teff, logg, monh,
 
     output = [sme_corr.wave[0], sme_corr.synth[0], sme_corr.monh, sme_corr.abund[target_elem]]
 
+    try:
+        sme_corr.nlte.clear()
+    except Exception:
+        pass
     del sme_corr; gc.collect()
 
     return(output)
@@ -264,10 +279,11 @@ def main():
     resol = 57000. # Resolution
 
     df_abridged = df[df['element']==target_elem_ion].reset_index(drop=True)
-    del df
+    del df; gc.collect()
 
     if not os.path.exists(f'corrs/{target_name}'):
          os.makedirs(f'corrs/{target_name}')
+    teff, logg, monh, vmic, vmac, vsini, elemonh = read_atmo_params(target_name, target_elem) # Stellar parameters
     with open(f'corrs/{target_name}/{"".join(target_elem_ion.split())}_{target_name}_NLTE_corrections.txt', 'w') as fOut:
         for i in range(len(df_abridged['wave_nm'])):
             if df_abridged[target_name][i] == "-":
@@ -279,12 +295,11 @@ def main():
             if np.min(np.abs(linelist['wlcent']-target_wav))>5.e-2:
                 continue
 
-            teff, logg, monh, vmic, vmac, vsini, elemonh = read_atmo_params(target_name, target_elem) # Stellar parameters
             if target_elem_ion[:-2]=='Fe':
-                print(f'>>>Now analysing {target_name} at {target_wav:.3f} A (obs EW = {target_ew:.1f} mA)\n' + \
+                print(f'>>>Now analysing Fe at {target_wav:.3f} A ({target_name}; obs EW = {target_ew:.1f} mA)\n' + \
                       f'(Teff = {teff:.0f} K, logg = {logg:.2f} dex, [Fe/H] = {monh:.2f} dex, Vmic = {vmic:.1f} km/s)')
             else:
-                print(f'>>>Now analysing {target_name} at {target_wav:.3f} A (obs EW = {target_ew:.1f} mA)\n' + \
+                print(f'>>>Now analysing {target_elem_ion[:-2]} at {target_wav:.3f} A ({target_name}; obs EW = {target_ew:.1f} mA)\n' + \
                       f'(Teff = {teff:.0f} K, logg = {logg:.2f} dex, [Fe/H] = {monh:.2f} dex, Vmic = {vmic:.1f} km/s, [X/Fe] = {elemonh:.2f} dex)')
 
             wave_obs, flux_obs = synthesise_lte(target_elem, target_wav, target_ew, teff, logg, monh, vmic, vmac, vsini, elemonh, \
